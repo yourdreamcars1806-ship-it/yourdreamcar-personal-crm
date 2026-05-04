@@ -78,6 +78,58 @@ class AuthService {
     throw AuthException(err);
   }
 
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final token = await getStoredToken();
+    if (token == null || token.isEmpty) {
+      throw AuthException('Session expired. Please login again.');
+    }
+
+    final base = AppConfig.apiBaseUrl;
+    final uri = Uri.parse('$base/api/auth/change-password');
+
+    late final http.Response response;
+    try {
+      response = await _client
+          .post(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({
+              'currentPassword': currentPassword,
+              'newPassword': newPassword,
+            }),
+          )
+          .timeout(_timeout);
+    } catch (e, st) {
+      if (kDebugMode) {
+        debugPrint('[auth] changePassword network error: $e\n$st');
+      }
+      throw AuthException(_friendlyNetworkError(base, e));
+    }
+
+    final body = response.body.isEmpty ? '{}' : response.body;
+    Map<String, dynamic> map;
+    try {
+      map = jsonDecode(body) as Map<String, dynamic>;
+    } catch (_) {
+      throw AuthException(
+        'Server error (${response.statusCode}). Is the API running on $base?',
+      );
+    }
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return;
+    }
+
+    final err = map['error'] as String? ?? 'Could not update password';
+    throw AuthException(err);
+  }
+
   static String _friendlyNetworkError(String base, Object e) {
     final raw = e.toString().toLowerCase();
     final buf = StringBuffer()

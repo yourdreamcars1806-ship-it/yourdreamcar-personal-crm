@@ -46,4 +46,41 @@ async function login(req, res) {
   }
 }
 
-module.exports = { login };
+async function changePassword(req, res) {
+  try {
+    const currentPassword = String(req.body?.currentPassword || '');
+    const newPassword = String(req.body?.newPassword || '');
+
+    if (!currentPassword || !newPassword) {
+      return res
+        .status(400)
+        .json({ error: 'Current password and new password are required' });
+    }
+    if (newPassword.length < 6) {
+      return res
+        .status(400)
+        .json({ error: 'New password must be at least 6 characters' });
+    }
+
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const ok = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!ok) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    return res.json({ ok: true });
+  } catch (err) {
+    return res
+      .status(500)
+      .json({ error: err.message || 'Failed to update password' });
+  }
+}
+
+module.exports = { login, changePassword };

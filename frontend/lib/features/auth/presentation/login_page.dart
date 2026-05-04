@@ -210,7 +210,7 @@ class _LoginPageState extends State<LoginPage> {
             tooltip: 'Server settings',
             icon: Icon(
               Icons.settings_outlined,
-              color: Color(0xFF5F7BA5),
+              color: Color(0xFF4A5D8A),
             ),
             onPressed: _loading ? null : () => _openServerSettingsDialog(),
           ),
@@ -235,7 +235,7 @@ class _LoginPageState extends State<LoginPage> {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: const [
                       BoxShadow(
-                        color: Color(0x221D63ED),
+                        color: Color(0x22031273),
                         blurRadius: 14,
                         offset: Offset(0, 6),
                       ),
@@ -266,7 +266,7 @@ class _LoginPageState extends State<LoginPage> {
                   fontSize: 16,
                   height: 1.35,
                   fontWeight: FontWeight.w500,
-                  color: Color(0xFF5F7BA5),
+                  color: Color(0xFF4A5D8A),
                 ),
               ),
               const SizedBox(height: 8),
@@ -361,9 +361,9 @@ class _LoginPageState extends State<LoginPage> {
                 child: ElevatedButton(
                   onPressed: _loading ? null : _submit,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1D63ED),
+                    backgroundColor: const Color(0xFF031273),
                     foregroundColor: Colors.white,
-                    disabledBackgroundColor: const Color(0xFF8CAAF3),
+                    disabledBackgroundColor: const Color(0xFF5D6BA8),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -421,13 +421,13 @@ class _LabeledFieldCard extends StatelessWidget {
               width: 24,
               height: 24,
               decoration: BoxDecoration(
-                color: isFocused ? const Color(0x1F1D63ED) : const Color(0x126A86AF),
+                color: isFocused ? const Color(0x1F031273) : const Color(0x12031273),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
                 icon,
                 size: 14,
-                color: isFocused ? const Color(0xFF1D63ED) : const Color(0xFF6A86AF),
+                color: isFocused ? const Color(0xFF031273) : const Color(0xFF4A5D8A),
               ),
             ),
             const SizedBox(width: 8),
@@ -436,7 +436,7 @@ class _LabeledFieldCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: isFocused ? const Color(0xFF174FAF) : const Color(0xFF223A5A),
+                color: isFocused ? const Color(0xFF031273) : const Color(0xFF1D2F59),
               ),
             ),
           ],
@@ -451,12 +451,12 @@ class _LabeledFieldCard extends StatelessWidget {
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: isFocused ? const Color(0xFF1D63ED) : const Color(0xFFD0DDF2),
+              color: isFocused ? const Color(0xFF031273) : const Color(0xFFB8C5E6),
               width: isFocused ? 1.4 : 1.1,
             ),
             boxShadow: [
               BoxShadow(
-                color: isFocused ? const Color(0x1F1D63ED) : const Color(0x0D1D63ED),
+                color: isFocused ? const Color(0x1F031273) : const Color(0x0D031273),
                 blurRadius: isFocused ? 14 : 8,
                 offset: const Offset(0, 4),
               ),

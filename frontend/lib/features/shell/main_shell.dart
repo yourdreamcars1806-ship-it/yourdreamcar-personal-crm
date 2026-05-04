@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/ui/app_toast.dart';
 import '../../services/auth_service.dart';
 import '../auth/presentation/login_page.dart';
 import '../expenses/presentation/expenses_page.dart';
@@ -122,6 +123,169 @@ class _MainShellState extends State<MainShell> {
   void _toggleDarkMode(bool enabled) {
     setState(() => _darkMode = enabled);
     widget.onThemeChanged(enabled);
+  }
+
+  Future<void> _showChangePasswordDialog() async {
+    _closeDrawerIfOpen();
+    final currentCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) {
+          bool obscureCur = true;
+          bool obscureNew = true;
+          bool obscureConfirm = true;
+          bool submitting = false;
+
+          Future<void> submit(void Function(void Function()) setLocal) async {
+            final cur = currentCtrl.text;
+            final neu = newCtrl.text;
+            final conf = confirmCtrl.text;
+            if (cur.isEmpty) {
+              AppToast.error(ctx, 'Enter current password');
+              return;
+            }
+            if (neu.length < 6) {
+              AppToast.error(ctx, 'New password must be at least 6 characters');
+              return;
+            }
+            if (neu != conf) {
+              AppToast.error(ctx, 'New password and confirmation do not match');
+              return;
+            }
+
+            setLocal(() => submitting = true);
+            try {
+              await AuthService().changePassword(
+                currentPassword: cur,
+                newPassword: neu,
+              );
+              if (!ctx.mounted) return;
+              Navigator.of(ctx).pop();
+              if (!mounted) return;
+              AppToast.success(context, 'Password updated');
+            } on AuthException catch (e) {
+              if (ctx.mounted) {
+                AppToast.error(ctx, e.message);
+              }
+            } catch (e) {
+              if (ctx.mounted) {
+                AppToast.error(ctx, 'Error: $e');
+              }
+            } finally {
+              if (ctx.mounted) {
+                setLocal(() => submitting = false);
+              }
+            }
+          }
+
+          return StatefulBuilder(
+            builder: (ctx, setLocal) {
+              final primary = const Color(0xFF031273);
+              return AlertDialog(
+                title: const Text('Change password'),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      TextField(
+                        controller: currentCtrl,
+                        obscureText: obscureCur,
+                        enabled: !submitting,
+                        decoration: InputDecoration(
+                          labelText: 'Current password',
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscureCur
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                            onPressed: submitting
+                                ? null
+                                : () => setLocal(() => obscureCur = !obscureCur),
+                          ),
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: newCtrl,
+                        obscureText: obscureNew,
+                        enabled: !submitting,
+                        decoration: InputDecoration(
+                          labelText: 'New password',
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscureNew
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                            onPressed: submitting
+                                ? null
+                                : () => setLocal(() => obscureNew = !obscureNew),
+                          ),
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: confirmCtrl,
+                        obscureText: obscureConfirm,
+                        enabled: !submitting,
+                        decoration: InputDecoration(
+                          labelText: 'Confirm new password',
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscureConfirm
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                            onPressed: submitting
+                                ? null
+                                : () =>
+                                    setLocal(() => obscureConfirm = !obscureConfirm),
+                          ),
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: submitting ? null : () => Navigator.of(ctx).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  FilledButton(
+                    onPressed: submitting ? null : () => submit(setLocal),
+                    style: FilledButton.styleFrom(backgroundColor: primary),
+                    child: submitting
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text('Update'),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      currentCtrl.dispose();
+      newCtrl.dispose();
+      confirmCtrl.dispose();
+    }
   }
 
   @override
@@ -364,6 +528,27 @@ class _MainShellState extends State<MainShell> {
                   ),
                 ),
                 onTap: _goToAddExpense,
+              ),
+              const SizedBox(height: 4),
+              ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 2,
+                ),
+                leading: const Icon(
+                  Icons.lock_reset_rounded,
+                  color: Color(0xFF031273),
+                ),
+                title: Text(
+                  'Change password',
+                  style: TextStyle(
+                    color: _darkMode ? const Color(0xFFE6EEFF) : const Color(0xFF0F2442),
+                  ),
+                ),
+                onTap: _showChangePasswordDialog,
               ),
               Divider(
                 height: 1,

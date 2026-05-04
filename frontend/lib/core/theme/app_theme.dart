@@ -43,7 +43,7 @@ class AppTheme {
   );
 
   static ThemeData light() {
-    const primaryBlue = Color(0xFF1D63ED);
+    const primaryBlue = Color(0xFF031273);
 
     return ThemeData(
       fontFamily: 'Roboto',

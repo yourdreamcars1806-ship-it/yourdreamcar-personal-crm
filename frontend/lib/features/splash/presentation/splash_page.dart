@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/assets.dart';
-import '../../../core/theme/brand_colors.dart';
 import '../../auth/presentation/login_page.dart';
 
 /// Full-screen branded splash shown before [LoginPage].
@@ -92,12 +91,12 @@ class _SplashPageState extends State<SplashPage>
           Positioned(
             top: -h * 0.15,
             right: -80,
-            child: _glowOrb(180, const Color(0x331D63ED)),
+            child: _glowOrb(180, const Color(0x33031273)),
           ),
           Positioned(
             bottom: -h * 0.1,
             left: -60,
-            child: _glowOrb(220, const Color(0x261D63ED)),
+            child: _glowOrb(220, const Color(0x26031273)),
           ),
           SafeArea(
             child: Center(
@@ -118,7 +117,7 @@ class _SplashPageState extends State<SplashPage>
                       return const LinearGradient(
                         colors: [
                           Color(0xFF0F2442),
-                          Color(0xFF1D63ED),
+                          Color(0xFF031273),
                           Color(0xFF0F2442),
                         ],
                         stops: [0.0, 0.5, 1.0],
@@ -141,7 +140,7 @@ class _SplashPageState extends State<SplashPage>
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
-                      color: const Color(0xFF3A5D92),
+                      color: const Color(0xFF2E4576),
                       letterSpacing: 2,
                     ),
                   ),
@@ -151,7 +150,7 @@ class _SplashPageState extends State<SplashPage>
                     height: 36,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.5,
-                      color: const Color(0xFF1D63ED),
+                      color: const Color(0xFF031273),
                     ),
                   ),
                 ],
@@ -185,19 +184,14 @@ class _LogoHero extends StatelessWidget {
             borderRadius: BorderRadius.circular(28),
             boxShadow: [
               BoxShadow(
-                color: const Color(0x331D63ED),
+                color: const Color(0x33031273),
                 blurRadius: 28,
                 spreadRadius: 2,
               ),
               BoxShadow(
-                color: const Color(0x1F1D63ED),
+                color: const Color(0x1F031273),
                 blurRadius: 44,
                 spreadRadius: 8,
-              ),
-              BoxShadow(
-                color: BrandColors.gold.withValues(alpha: 0.12),
-                blurRadius: 20,
-                spreadRadius: 0,
               ),
             ],
           ),

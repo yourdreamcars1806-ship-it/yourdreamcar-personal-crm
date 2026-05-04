@@ -97,6 +97,6 @@ flutter_launcher_icons:
   ios: false
   web:
     generate: true
-  image_path: assets/images/app_icon.png
-  adaptive_icon_background: '#FFDD00'
-  adaptive_icon_foreground: assets/images/app_icon.png
+  image_path: assets/images/app_launcher_ydc.png
+  adaptive_icon_background: '#031273'
+  adaptive_icon_foreground: assets/images/app_launcher_ydc.png
