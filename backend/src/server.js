@@ -1,4 +1,5 @@
 require('dotenv').config();
+const mongoose = require('mongoose');
 
 const { connectDatabase } = require('./config/database');
 const { configureCloudinary } = require('./config/cloudinary');
@@ -18,12 +19,51 @@ function shouldSeedUserOnBoot() {
   return true;
 }
 
-async function main() {
-  await connectDatabase();
-  if (shouldSeedUserOnBoot()) {
-    await ensureSeedUser();
-  } else {
+async function maybeSeedUser() {
+  if (!shouldSeedUserOnBoot()) {
     console.log('[boot] Seed user on boot is disabled');
+    return;
+  }
+  await ensureSeedUser();
+}
+
+async function tryConnectDatabase() {
+  try {
+    await connectDatabase();
+    return true;
+  } catch (err) {
+    console.error(
+      '[db] Initial connection failed, API will start in degraded mode:',
+      err.message
+    );
+    return false;
+  }
+}
+
+function startDatabaseReconnectLoop() {
+  const retryMs = Math.max(3_000, Number(process.env.DB_RETRY_MS) || 10_000);
+  const timer = setInterval(async () => {
+    if (mongoose.connection.readyState === 1 || mongoose.connection.readyState === 2) {
+      return;
+    }
+    try {
+      await connectDatabase();
+      await maybeSeedUser();
+      console.log('[db] Reconnected successfully');
+      clearInterval(timer);
+    } catch (err) {
+      console.warn('[db] Reconnect attempt failed:', err.message);
+    }
+  }, retryMs);
+  timer.unref();
+}
+
+async function main() {
+  const dbConnected = await tryConnectDatabase();
+  if (dbConnected) {
+    await maybeSeedUser();
+  } else {
+    startDatabaseReconnectLoop();
   }
   const cloudinary = configureCloudinary();
   if (!cloudinary) {
