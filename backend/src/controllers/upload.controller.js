@@ -1,15 +1,25 @@
 const CarImage = require('../models/CarImage');
 
-function uploadBufferToCloudinary(cloudinary, buffer, options = {}) {
+function uploadBufferToCloudinary(cloudinary, buffer, mimeType, options = {}) {
+  const mime =
+    typeof mimeType === 'string' && mimeType.startsWith('image/')
+      ? mimeType
+      : 'image/jpeg';
+  const dataUri = `data:${mime};base64,${buffer.toString('base64')}`;
   return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      { folder: 'yourdreamcar', resource_type: 'image', ...options },
+    cloudinary.uploader.upload(
+      dataUri,
+      {
+        folder: 'yourdreamcar',
+        resource_type: 'image',
+        use_filename: false,
+        ...options,
+      },
       (err, result) => {
         if (err) reject(err);
         else resolve(result);
       }
     );
-    stream.end(buffer);
   });
 }
 
@@ -24,7 +34,11 @@ async function uploadSingleImage(req, res, cloudinary) {
       return res.status(400).json({ error: 'Missing file: use field name "image"' });
     }
 
-    const result = await uploadBufferToCloudinary(cloudinary, req.file.buffer);
+    const result = await uploadBufferToCloudinary(
+      cloudinary,
+      req.file.buffer,
+      req.file.mimetype
+    );
 
     const doc = await CarImage.create({
       cloudinaryPublicId: result.public_id,

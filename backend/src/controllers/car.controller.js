@@ -41,17 +41,60 @@ async function getSummary() {
   return summary;
 }
 
-function uploadBufferToCloudinary(cloudinary, buffer, options = {}) {
+/** Upload via signed image bytes (avoids some stream/proxy edge cases). */
+function uploadBufferToCloudinary(cloudinary, buffer, mimeType, options = {}) {
+  const mime =
+    typeof mimeType === 'string' && mimeType.startsWith('image/')
+      ? mimeType
+      : 'image/jpeg';
+  const dataUri = `data:${mime};base64,${buffer.toString('base64')}`;
   return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      { folder: 'yourdreamcar/cars', resource_type: 'image', ...options },
+    cloudinary.uploader.upload(
+      dataUri,
+      {
+        folder: 'yourdreamcar/cars',
+        resource_type: 'image',
+        use_filename: false,
+        ...options,
+      },
       (err, result) => {
         if (err) reject(err);
         else resolve(result);
       }
     );
-    stream.end(buffer);
   });
+}
+
+function formatCarSaveError(err) {
+  if (!err) {
+    return { status: 500, message: 'Save failed' };
+  }
+  if (err.name === 'ValidationError') {
+    const parts = Object.values(err.errors || {}).map((e) => e.message);
+    const msg = parts.length ? parts.join('; ') : err.message;
+    return { status: 400, message: msg };
+  }
+  const raw =
+    typeof err.message === 'string'
+      ? err.message
+      : err.error?.message || String(err);
+  const httpCode = err.http_code ?? err.error?.http_code ?? err.response?.status;
+  const forbiddenUpload =
+    httpCode === 403 ||
+    httpCode === 401 ||
+    /\b403\b/.test(raw) ||
+    /Invalid credentials/i.test(raw) ||
+    /Invalid api/i.test(raw) ||
+    /not authorized/i.test(raw);
+
+  if (forbiddenUpload) {
+    return {
+      status: 503,
+      message:
+        'Photo upload failed (Cloudinary rejected the request). In Railway → Variables set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET exactly from Cloudinary Dashboard → Programmable Media → API Keys — remove spaces/newlines. Then redeploy.',
+    };
+  }
+  return { status: 500, message: raw || 'Save failed' };
 }
 
 function parseCreatePayload(body) {
@@ -78,6 +121,14 @@ function validatePayload(data, { requireImage }) {
     if (!data[k]) {
       return `${k} is required`;
     }
+  }
+  const ownershipEnum = Car.schema.path('ownership')?.enumValues;
+  if (
+    Array.isArray(ownershipEnum) &&
+    ownershipEnum.length > 0 &&
+    !ownershipEnum.includes(data.ownership)
+  ) {
+    return `ownership must be one of: ${ownershipEnum.join(', ')}`;
   }
   if (Number.isNaN(data.year) || data.year < 1980 || data.year > 2100) {
     return 'year must be between 1980 and 2100';
@@ -112,20 +163,25 @@ async function createCar(req, res, cloudinary) {
     }
 
     const parsed = parseCreatePayload(req.body);
-    const uploaded = await uploadBufferToCloudinary(cloudinary, req.file.buffer);
-    parsed.imageUrl = uploaded.secure_url;
-    parsed.imagePublicId = uploaded.public_id;
-
-    const validationError = validatePayload(parsed, { requireImage: true });
+    const validationError = validatePayload(parsed, { requireImage: false });
     if (validationError) {
       return res.status(400).json({ error: validationError });
     }
+
+    const uploaded = await uploadBufferToCloudinary(
+      cloudinary,
+      req.file.buffer,
+      req.file.mimetype
+    );
+    parsed.imageUrl = uploaded.secure_url;
+    parsed.imagePublicId = uploaded.public_id;
 
     const car = await Car.create(parsed);
     invalidateSummaryCache();
     return res.status(201).json({ car });
   } catch (err) {
-    return res.status(500).json({ error: err.message || 'Create car failed' });
+    const { status, message } = formatCarSaveError(err);
+    return res.status(status).json({ error: message });
   }
 }
 
@@ -173,13 +229,22 @@ async function updateCar(req, res, cloudinary) {
 
     const parsed = parseCreatePayload({ ...car.toObject(), ...req.body });
 
+    const preValidate = validatePayload(parsed, { requireImage: false });
+    if (preValidate) {
+      return res.status(400).json({ error: preValidate });
+    }
+
     if (req.file) {
       if (!cloudinary) {
         return res.status(503).json({
           error: 'Cloudinary is not configured. Set CLOUDINARY_* in .env',
         });
       }
-      const uploaded = await uploadBufferToCloudinary(cloudinary, req.file.buffer);
+      const uploaded = await uploadBufferToCloudinary(
+        cloudinary,
+        req.file.buffer,
+        req.file.mimetype
+      );
       if (car.imagePublicId) {
         try {
           await cloudinary.uploader.destroy(car.imagePublicId);
@@ -202,7 +267,8 @@ async function updateCar(req, res, cloudinary) {
     invalidateSummaryCache();
     return res.json({ car });
   } catch (err) {
-    return res.status(500).json({ error: err.message || 'Update car failed' });
+    const { status, message } = formatCarSaveError(err);
+    return res.status(status).json({ error: message });
   }
 }
 
