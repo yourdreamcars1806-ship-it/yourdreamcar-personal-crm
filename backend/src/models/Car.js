@@ -1,12 +1,20 @@
 const mongoose = require('mongoose');
 
 const fuelTypes = ['CNG', 'PETROL', 'DIESEL'];
-const ownershipTypes = ['1st owner', '2nd owner', '3rd owner'];
+const ownershipTypes = [
+  '1st owner',
+  '2nd owner',
+  '3rd owner',
+  '4th owner',
+  '5th owner',
+  'multiple owner',
+];
 const availabilityTypes = ['stock', 'outstock'];
 
 const carSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
+    vehicleNumber: { type: String, default: '', trim: true },
     brand: { type: String, required: true, trim: true },
     model: { type: String, required: true, trim: true },
     fuelType: { type: String, enum: fuelTypes, required: true },

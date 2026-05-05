@@ -97,7 +97,7 @@ class CarService {
     request.files.add(await _imageMultipart(imageFile));
     final response = await http.Response.fromStream(
       await _client.send(request),
-    );
+    ).timeout(_timeout);
     final map = _readJson(response);
     _throwIfBad(response, map);
     return CarRecord.fromJson((map['car'] as Map<String, dynamic>? ?? {}));
@@ -115,14 +115,15 @@ class CarService {
     }
     final response = await http.Response.fromStream(
       await _client.send(request),
-    );
+    ).timeout(_timeout);
     final map = _readJson(response);
     _throwIfBad(response, map);
     return CarRecord.fromJson((map['car'] as Map<String, dynamic>? ?? {}));
   }
 
   Future<void> deleteCar(String id) async {
-    final response = await _client.delete(_uri('/api/cars/$id'));
+    final response =
+        await _client.delete(_uri('/api/cars/$id')).timeout(_timeout);
     final map = _readJson(response);
     _throwIfBad(response, map);
   }
@@ -165,6 +166,7 @@ class CarRecord {
   CarRecord({
     required this.id,
     required this.title,
+    required this.vehicleNumber,
     required this.brand,
     required this.model,
     required this.fuelType,
@@ -183,6 +185,7 @@ class CarRecord {
     return CarRecord(
       id: (json['_id'] ?? '').toString(),
       title: (json['title'] ?? '').toString(),
+      vehicleNumber: (json['vehicleNumber'] ?? '').toString(),
       brand: (json['brand'] ?? '').toString(),
       model: (json['model'] ?? '').toString(),
       fuelType: (json['fuelType'] ?? '').toString(),
@@ -202,6 +205,7 @@ class CarRecord {
 
   final String id;
   final String title;
+  final String vehicleNumber;
   final String brand;
   final String model;
   final String fuelType;

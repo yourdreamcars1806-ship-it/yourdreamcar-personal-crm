@@ -57,6 +57,7 @@ function uploadBufferToCloudinary(cloudinary, buffer, options = {}) {
 function parseCreatePayload(body) {
   return {
     title: String(body.title || '').trim(),
+    vehicleNumber: String(body.vehicleNumber || '').trim(),
     brand: String(body.brand || '').trim(),
     model: String(body.model || '').trim(),
     fuelType: String(body.fuelType || '').trim().toUpperCase(),
@@ -142,8 +143,8 @@ async function listCars(req, res) {
       String(req.query.omitDescription || '').trim().toLowerCase()
     );
     const selectFields = omitDesc
-      ? '_id title brand model fuelType ownership availability year buyPrice sellPrice buyDate saleDate imageUrl createdAt'
-      : '_id title brand model fuelType ownership availability year buyPrice sellPrice buyDate saleDate description imageUrl createdAt';
+      ? '_id title vehicleNumber brand model fuelType ownership availability year buyPrice sellPrice buyDate saleDate imageUrl createdAt'
+      : '_id title vehicleNumber brand model fuelType ownership availability year buyPrice sellPrice buyDate saleDate description imageUrl createdAt';
 
     const [cars, summary] = await Promise.all([
       Car.find(q)

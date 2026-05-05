@@ -9,6 +9,13 @@ import '../../../services/expense_service.dart';
 import '../../../services/car_service.dart';
 import '../../expenses/domain/expense_entry.dart';
 
+String _inventoryCarSubtitle(CarRecord car) {
+  final base = '${car.brand} · ${car.model} · ${car.year}';
+  final vn = car.vehicleNumber.trim();
+  if (vn.isEmpty) return base;
+  return '$base · $vn';
+}
+
 class InventoryPage extends StatefulWidget {
   const InventoryPage({super.key, this.onCarCountChanged});
 
@@ -19,10 +26,20 @@ class InventoryPage extends StatefulWidget {
 }
 
 class InventoryPageState extends State<InventoryPage> {
+  static const List<String> _ownershipChoices = [
+    '1st owner',
+    '2nd owner',
+    '3rd owner',
+    '4th owner',
+    '5th owner',
+    'multiple owner',
+  ];
+
   final _formKey = GlobalKey<FormState>();
   final _picker = ImagePicker();
   final _carsApi = CarService();
   final _titleController = TextEditingController();
+  final _vehicleNumberController = TextEditingController();
   final _brandController = TextEditingController();
   final _modelController = TextEditingController();
   final _yearController = TextEditingController();
@@ -50,9 +67,14 @@ class InventoryPageState extends State<InventoryPage> {
     _loadCars();
   }
 
+  List<String> get _ownershipItems => _ownershipChoices.contains(_ownership)
+      ? _ownershipChoices
+      : [..._ownershipChoices, _ownership];
+
   @override
   void dispose() {
     _titleController.dispose();
+    _vehicleNumberController.dispose();
     _brandController.dispose();
     _modelController.dispose();
     _yearController.dispose();
@@ -130,6 +152,7 @@ class InventoryPageState extends State<InventoryPage> {
   Map<String, String> _buildFields() {
     return {
       'title': _titleController.text.trim(),
+      'vehicleNumber': _vehicleNumberController.text.trim(),
       'brand': _brandController.text.trim(),
       'model': _modelController.text.trim(),
       'fuelType': _fuelType,
@@ -200,6 +223,7 @@ class InventoryPageState extends State<InventoryPage> {
     _editingCar = null;
     _picked = null;
     _titleController.clear();
+    _vehicleNumberController.clear();
     _brandController.clear();
     _modelController.clear();
     _yearController.clear();
@@ -218,6 +242,7 @@ class InventoryPageState extends State<InventoryPage> {
       _editingCar = car;
       _picked = null;
       _titleController.text = car.title;
+      _vehicleNumberController.text = car.vehicleNumber;
       _brandController.text = car.brand;
       _modelController.text = car.model;
       _yearController.text = '${car.year}';
@@ -328,11 +353,14 @@ class InventoryPageState extends State<InventoryPage> {
     TextInputType? keyboardType,
     int maxLines = 1,
     String? hintText,
+    bool requiredField = true,
+    TextCapitalization textCapitalization = TextCapitalization.none,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
       maxLines: maxLines,
+      textCapitalization: textCapitalization,
       style: const TextStyle(
         color: _formInk,
         fontSize: 15,
@@ -346,12 +374,14 @@ class InventoryPageState extends State<InventoryPage> {
           fontSize: 14,
         ),
       ),
-      validator: (value) {
-        if ((value ?? '').trim().isEmpty) {
-          return '$label is required';
-        }
-        return null;
-      },
+      validator: requiredField
+          ? (value) {
+              if ((value ?? '').trim().isEmpty) {
+                return '$label is required';
+              }
+              return null;
+            }
+          : (_) => null,
     );
   }
 
@@ -765,6 +795,15 @@ class InventoryPageState extends State<InventoryPage> {
                   _textField(controller: _titleController, label: 'Title'),
                 ),
                 fieldCell(
+                  _textField(
+                    controller: _vehicleNumberController,
+                    label: 'Vehicle number',
+                    requiredField: false,
+                    hintText: 'e.g. registration / plate no.',
+                    textCapitalization: TextCapitalization.characters,
+                  ),
+                ),
+                fieldCell(
                   _textField(controller: _brandController, label: 'Brand'),
                 ),
                 fieldCell(
@@ -784,7 +823,7 @@ class InventoryPageState extends State<InventoryPage> {
                   _dropdown(
                     label: 'Ownership',
                     value: _ownership,
-                    options: const ['1st owner', '2nd owner', '3rd owner'],
+                    options: _ownershipItems,
                     onChanged: (v) =>
                         setState(() => _ownership = v ?? _ownership),
                   ),
@@ -1397,7 +1436,7 @@ class _InventoryDetailCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${car.brand} · ${car.model} · ${car.year}',
+                          _inventoryCarSubtitle(car),
                           style: TextStyle(
                             fontSize: 12,
                             color: isDark
@@ -1443,6 +1482,12 @@ class _InventoryDetailCard extends StatelessWidget {
                 child: Column(
                   children: [
                     _DetailRow(label: 'Fuel', value: car.fuelType),
+                    _DetailRow(
+                      label: 'Vehicle number',
+                      value: car.vehicleNumber.trim().isEmpty
+                          ? '—'
+                          : car.vehicleNumber,
+                    ),
                     _DetailRow(label: 'Ownership', value: car.ownership),
                     _DetailRow(
                       label: 'Availability',
@@ -2055,7 +2100,7 @@ class _InventoryCarDetailsPageState extends State<InventoryCarDetailsPage> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '${car.brand} · ${car.model} · ${car.year}',
+                  _inventoryCarSubtitle(car),
                   style: const TextStyle(
                     fontSize: 14,
                     color: Color(0xFF5B769E),
@@ -2103,6 +2148,12 @@ class _InventoryCarDetailsPageState extends State<InventoryCarDetailsPage> {
             child: Column(
               children: [
                 _DetailRow(label: 'Fuel type', value: car.fuelType),
+                _DetailRow(
+                  label: 'Vehicle number',
+                  value: car.vehicleNumber.trim().isEmpty
+                      ? '—'
+                      : car.vehicleNumber,
+                ),
                 _DetailRow(label: 'Ownership', value: car.ownership),
                 _DetailRow(label: 'Availability', value: car.availability),
                 _DetailRow(label: 'Buy date', value: _fmtDate(car.buyDate)),
