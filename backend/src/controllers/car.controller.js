@@ -1,4 +1,5 @@
 const Car = require('../models/Car');
+const { uploadImageBufferStream } = require('../utils/cloudinaryImageUpload');
 const SUMMARY_CACHE_TTL_MS = Math.min(
   120_000,
   Math.max(15_000, Number(process.env.CARS_SUMMARY_CACHE_MS) || 45_000)
@@ -41,30 +42,6 @@ async function getSummary() {
   return summary;
 }
 
-/** Upload via signed image bytes (avoids some stream/proxy edge cases). */
-function uploadBufferToCloudinary(cloudinary, buffer, mimeType, options = {}) {
-  const mime =
-    typeof mimeType === 'string' && mimeType.startsWith('image/')
-      ? mimeType
-      : 'image/jpeg';
-  const dataUri = `data:${mime};base64,${buffer.toString('base64')}`;
-  return new Promise((resolve, reject) => {
-    cloudinary.uploader.upload(
-      dataUri,
-      {
-        folder: 'yourdreamcar/cars',
-        resource_type: 'image',
-        use_filename: false,
-        ...options,
-      },
-      (err, result) => {
-        if (err) reject(err);
-        else resolve(result);
-      }
-    );
-  });
-}
-
 function formatCarSaveError(err) {
   if (!err) {
     return { status: 500, message: 'Save failed' };
@@ -91,7 +68,7 @@ function formatCarSaveError(err) {
     return {
       status: 503,
       message:
-        'Photo upload failed (Cloudinary rejected the request). In Railway → Variables set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET exactly from Cloudinary Dashboard → Programmable Media → API Keys — remove spaces/newlines. Then redeploy.',
+        'Photo upload failed (Cloudinary rejected auth). Fix Railway Variables: either set CLOUDINARY_CLOUD_NAME + CLOUDINARY_API_KEY + CLOUDINARY_API_SECRET (exact copy from Cloudinary → API Keys, no quotes/spaces), OR set one CLOUDINARY_URL=cloudinary://KEY:SECRET@CLOUD_NAME (URL-encode characters like @ in SECRET). Redeploy after saving.',
     };
   }
   return { status: 500, message: raw || 'Save failed' };
@@ -168,10 +145,10 @@ async function createCar(req, res, cloudinary) {
       return res.status(400).json({ error: validationError });
     }
 
-    const uploaded = await uploadBufferToCloudinary(
+    const uploaded = await uploadImageBufferStream(
       cloudinary,
       req.file.buffer,
-      req.file.mimetype
+      'yourdreamcar/cars'
     );
     parsed.imageUrl = uploaded.secure_url;
     parsed.imagePublicId = uploaded.public_id;
@@ -240,10 +217,10 @@ async function updateCar(req, res, cloudinary) {
           error: 'Cloudinary is not configured. Set CLOUDINARY_* in .env',
         });
       }
-      const uploaded = await uploadBufferToCloudinary(
+      const uploaded = await uploadImageBufferStream(
         cloudinary,
         req.file.buffer,
-        req.file.mimetype
+        'yourdreamcar/cars'
       );
       if (car.imagePublicId) {
         try {
