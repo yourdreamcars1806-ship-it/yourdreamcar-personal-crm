@@ -48,7 +48,11 @@ function startDatabaseReconnectLoop() {
     }
     try {
       await connectDatabase();
-      await maybeSeedUser();
+      try {
+        await maybeSeedUser();
+      } catch (err) {
+        console.error('[boot] Seed user failed:', err.message);
+      }
       console.log('[db] Reconnected successfully');
       clearInterval(timer);
     } catch (err) {
@@ -61,7 +65,11 @@ function startDatabaseReconnectLoop() {
 async function main() {
   const dbConnected = await tryConnectDatabase();
   if (dbConnected) {
-    await maybeSeedUser();
+    try {
+      await maybeSeedUser();
+    } catch (err) {
+      console.error('[boot] Seed user failed (API will still start):', err.message);
+    }
   } else {
     startDatabaseReconnectLoop();
   }
