@@ -30,7 +30,14 @@ async function seedUser() {
 
   const existing = await User.findOne({ email });
   if (existing) {
-    console.log('[seed] User already exists:', email);
+    const ok = await bcrypt.compare(password, existing.passwordHash);
+    if (!ok) {
+      existing.passwordHash = await bcrypt.hash(password, 10);
+      await existing.save();
+      console.log('[seed] Updated password for:', email);
+    } else {
+      console.log('[seed] User already exists:', email);
+    }
     await mongoose.disconnect();
     return;
   }
