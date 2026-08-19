@@ -13,12 +13,6 @@ async function ensureSeedUser() {
 
   const existing = await User.findOne({ email });
   if (existing) {
-    const ok = await bcrypt.compare(password, existing.passwordHash);
-    if (!ok) {
-      existing.passwordHash = await bcrypt.hash(password, 10);
-      await existing.save();
-      console.log('[boot] Updated login password for:', email);
-    }
     return;
   }
 
