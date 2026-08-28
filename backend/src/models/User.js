@@ -10,6 +10,15 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
     passwordHash: { type: String, required: true },
+    name: { type: String, default: '', trim: true },
+    role: {
+      type: String,
+      enum: ['admin', 'user'],
+      default: 'admin',
+    },
+    resetOtpHash: { type: String, default: '' },
+    resetOtpExpiresAt: { type: Date },
+    lastActiveAt: { type: Date },
   },
   { timestamps: true }
 );

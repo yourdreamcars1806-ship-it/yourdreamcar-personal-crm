@@ -6,6 +6,7 @@ import 'package:http_parser/http_parser.dart';
 
 import '../core/config/app_config.dart';
 import '../core/network/app_http_client.dart';
+import 'auth_service.dart';
 
 String _basename(String path) {
   final normalized = path.replaceAll('\\', '/');
@@ -57,6 +58,17 @@ class CarService {
 
   Uri _uri(String path) => Uri.parse('${AppConfig.apiBaseUrl}$path');
 
+  Future<Map<String, String>> _authHeaders({bool required = false}) async {
+    final token = await AuthService.getStoredToken();
+    if (token == null || token.isEmpty) {
+      if (required) {
+        throw CarServiceException('Session expired. Please login again.');
+      }
+      return {};
+    }
+    return {'Authorization': 'Bearer $token'};
+  }
+
   Future<CarListResponse> listCars({
     int? limit,
     bool omitDescription = false,
@@ -69,7 +81,9 @@ class CarService {
       q['omitDescription'] = '1';
     }
     final uri = _uri('/api/cars').replace(queryParameters: q.isEmpty ? null : q);
-    final response = await _client.get(uri).timeout(_listTimeout);
+    final response = await _client
+        .get(uri, headers: await _authHeaders())
+        .timeout(_listTimeout);
     final map = _readJson(response);
     _throwIfBad(response, map);
 
@@ -88,11 +102,21 @@ class CarService {
     );
   }
 
+  Future<CarRecord> getCar(String id) async {
+    final response = await _client
+        .get(_uri('/api/cars/$id'), headers: await _authHeaders())
+        .timeout(_timeout);
+    final map = _readJson(response);
+    _throwIfBad(response, map);
+    return CarRecord.fromJson((map['car'] as Map<String, dynamic>? ?? {}));
+  }
+
   Future<CarRecord> createCar({
     required Map<String, String> fields,
     required File imageFile,
   }) async {
     final request = http.MultipartRequest('POST', _uri('/api/cars'));
+    request.headers.addAll(await _authHeaders(required: true));
     request.fields.addAll(fields);
     request.files.add(await _imageMultipart(imageFile));
     final response = await http.Response.fromStream(
@@ -109,6 +133,7 @@ class CarService {
     File? imageFile,
   }) async {
     final request = http.MultipartRequest('PUT', _uri('/api/cars/$id'));
+    request.headers.addAll(await _authHeaders(required: true));
     request.fields.addAll(fields);
     if (imageFile != null) {
       request.files.add(await _imageMultipart(imageFile));
@@ -122,8 +147,9 @@ class CarService {
   }
 
   Future<void> deleteCar(String id) async {
-    final response =
-        await _client.delete(_uri('/api/cars/$id')).timeout(_timeout);
+    final response = await _client
+        .delete(_uri('/api/cars/$id'), headers: await _authHeaders(required: true))
+        .timeout(_timeout);
     final map = _readJson(response);
     _throwIfBad(response, map);
   }
@@ -218,6 +244,8 @@ class CarRecord {
   final DateTime? saleDate;
   final String description;
   final String imageUrl;
+
+  bool get isSold => availability.toLowerCase() == 'outstock';
 }
 
 class CarServiceException implements Exception {

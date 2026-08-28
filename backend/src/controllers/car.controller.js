@@ -1,5 +1,6 @@
 const Car = require('../models/Car');
 const { uploadImageBufferStream } = require('../utils/cloudinaryImageUpload');
+const { notifyCarAdded } = require('./notification.controller');
 const SUMMARY_CACHE_TTL_MS = Math.min(
   120_000,
   Math.max(15_000, Number(process.env.CARS_SUMMARY_CACHE_MS) || 45_000)
@@ -16,6 +17,22 @@ let summaryCache = {
 
 function invalidateSummaryCache() {
   summaryCache = { value: null, expiresAt: 0 };
+}
+
+function isAdminReq(req) {
+  return req.userRole === 'admin';
+}
+
+function toClientCar(doc, admin) {
+  const o =
+    doc && typeof doc.toObject === 'function' ? doc.toObject() : { ...doc };
+  if (!admin) {
+    delete o.buyPrice;
+    delete o.buyDate;
+    delete o.imagePublicId;
+    delete o.__v;
+  }
+  return o;
 }
 
 async function getSummary() {
@@ -155,6 +172,9 @@ async function createCar(req, res, cloudinary) {
 
     const car = await Car.create(parsed);
     invalidateSummaryCache();
+    notifyCarAdded(car).catch((err) => {
+      console.error('[notify] car_added failed:', err.message);
+    });
     return res.status(201).json({ car });
   } catch (err) {
     const { status, message } = formatCarSaveError(err);
@@ -175,9 +195,14 @@ async function listCars(req, res) {
     const omitDesc = ['1', 'true', 'yes'].includes(
       String(req.query.omitDescription || '').trim().toLowerCase()
     );
-    const selectFields = omitDesc
-      ? '_id title vehicleNumber brand model fuelType ownership availability year buyPrice sellPrice buyDate saleDate imageUrl createdAt'
-      : '_id title vehicleNumber brand model fuelType ownership availability year buyPrice sellPrice buyDate saleDate description imageUrl createdAt';
+    const admin = isAdminReq(req);
+    const selectFields = admin
+      ? omitDesc
+        ? '_id title vehicleNumber brand model fuelType ownership availability year buyPrice sellPrice buyDate saleDate imageUrl createdAt'
+        : '_id title vehicleNumber brand model fuelType ownership availability year buyPrice sellPrice buyDate saleDate description imageUrl createdAt'
+      : omitDesc
+        ? '_id title vehicleNumber brand model fuelType ownership availability year sellPrice saleDate imageUrl createdAt'
+        : '_id title vehicleNumber brand model fuelType ownership availability year sellPrice saleDate description imageUrl createdAt';
 
     const [cars, summary] = await Promise.all([
       Car.find(q)
@@ -189,11 +214,30 @@ async function listCars(req, res) {
     ]);
     res.set(
       'Cache-Control',
-      omitDesc ? 'public, max-age=15, stale-while-revalidate=30' : 'public, max-age=10'
+      admin
+        ? 'private, no-store'
+        : omitDesc
+          ? 'public, max-age=15, stale-while-revalidate=30'
+          : 'public, max-age=10'
     );
-    return res.json({ cars, summary });
+    return res.json({
+      cars: cars.map((c) => toClientCar(c, admin)),
+      summary,
+    });
   } catch (err) {
     return res.status(500).json({ error: err.message || 'List cars failed' });
+  }
+}
+
+async function getCar(req, res) {
+  try {
+    const car = await Car.findById(req.params.id).lean();
+    if (!car) {
+      return res.status(404).json({ error: 'Car not found' });
+    }
+    return res.json({ car: toClientCar(car, isAdminReq(req)) });
+  } catch (_err) {
+    return res.status(400).json({ error: 'Invalid car id' });
   }
 }
 
@@ -268,4 +312,11 @@ async function deleteCar(req, res, cloudinary) {
   }
 }
 
-module.exports = { createCar, listCars, updateCar, deleteCar };
+module.exports = {
+  createCar,
+  listCars,
+  getCar,
+  updateCar,
+  deleteCar,
+  invalidateSummaryCache,
+};

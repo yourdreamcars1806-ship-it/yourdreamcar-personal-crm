@@ -3,10 +3,13 @@ import 'package:flutter/services.dart';
 
 import '../../core/ui/app_toast.dart';
 import '../../services/auth_service.dart';
-import '../auth/presentation/login_page.dart';
 import '../expenses/presentation/expenses_page.dart';
 import '../home/presentation/dashboard_page.dart';
 import '../inventory/presentation/inventory_page.dart';
+import '../marketplace/presentation/user_shell.dart';
+import '../marketplace/presentation/admin_bids_page.dart';
+import '../marketplace/presentation/admin_delivery_notes_page.dart';
+import '../marketplace/presentation/admin_listing_requests_page.dart';
 import '../orders/presentation/orders_page.dart';
 
 /// Main app after login: bottom navigation + tab bodies.
@@ -28,6 +31,8 @@ class _MainShellState extends State<MainShell> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   int _index = 0;
   int _totalCars = 0;
+  int _activeUsers = 0;
+  int _totalUsers = 0;
   bool _loggingOut = false;
   late bool _darkMode;
   final _expensesKey = GlobalKey<ExpensesPageState>();
@@ -41,6 +46,18 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     _darkMode = widget.darkModeEnabled;
+    _loadUserStats();
+  }
+
+  Future<void> _loadUserStats() async {
+    try {
+      final stats = await AuthService().fetchAdminStats();
+      if (!mounted) return;
+      setState(() {
+        _activeUsers = stats.activeUsers;
+        _totalUsers = stats.totalUsers;
+      });
+    } catch (_) {}
   }
 
   void _onTab(int i) {
@@ -61,7 +78,7 @@ class _MainShellState extends State<MainShell> {
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(
-        builder: (_) => LoginPage(
+        builder: (_) => UserShell(
           darkModeEnabled: _darkMode,
           onThemeChanged: widget.onThemeChanged,
         ),
@@ -116,6 +133,7 @@ class _MainShellState extends State<MainShell> {
   void _openDrawer() {
     final state = _scaffoldKey.currentState;
     if (state != null && !state.isDrawerOpen) {
+      _loadUserStats();
       state.openDrawer();
     }
   }
@@ -406,6 +424,61 @@ class _MainShellState extends State<MainShell> {
                         color: _darkMode ? const Color(0xFF9DB0CC) : const Color(0xFF5B769E),
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _darkMode ? const Color(0xFF162138) : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _darkMode ? const Color(0xFF2F426A) : const Color(0xFFD4E4FF),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF22C55E).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.sensors_rounded,
+                              color: Color(0xFF16A34A),
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '$_activeUsers active users',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 14,
+                                    color: _darkMode
+                                        ? const Color(0xFFE6EEFF)
+                                        : const Color(0xFF0F2442),
+                                  ),
+                                ),
+                                Text(
+                                  '$_totalUsers registered • last 15 min',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: _darkMode
+                                        ? const Color(0xFF9DB0CC)
+                                        : const Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -486,6 +559,90 @@ class _MainShellState extends State<MainShell> {
                   ),
                 ),
                 onTap: _goToAddCar,
+              ),
+              const SizedBox(height: 4),
+              ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 2,
+                ),
+                leading: const Icon(
+                  Icons.gavel_rounded,
+                  color: Color(0xFF1D63ED),
+                ),
+                title: Text(
+                  'User bids',
+                  style: TextStyle(
+                    color: _darkMode ? const Color(0xFFE6EEFF) : const Color(0xFF0F2442),
+                  ),
+                ),
+                onTap: () {
+                  _closeDrawerIfOpen();
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const AdminBidsPage(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 4),
+              ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 2,
+                ),
+                leading: const Icon(
+                  Icons.assignment_ind_rounded,
+                  color: Color(0xFF1D63ED),
+                ),
+                title: Text(
+                  'User car requests',
+                  style: TextStyle(
+                    color: _darkMode ? const Color(0xFFE6EEFF) : const Color(0xFF0F2442),
+                  ),
+                ),
+                onTap: () {
+                  _closeDrawerIfOpen();
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const AdminListingRequestsPage(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 4),
+              ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 2,
+                ),
+                leading: const Icon(
+                  Icons.receipt_long_rounded,
+                  color: Color(0xFF1D63ED),
+                ),
+                title: Text(
+                  'Delivery notes',
+                  style: TextStyle(
+                    color: _darkMode ? const Color(0xFFE6EEFF) : const Color(0xFF0F2442),
+                  ),
+                ),
+                onTap: () {
+                  _closeDrawerIfOpen();
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const AdminDeliveryNotesPage(),
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 4),
               ListTile(

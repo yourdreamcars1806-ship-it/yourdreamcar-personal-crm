@@ -1,11 +1,11 @@
 {
-    "name": "yourdreamcar",
-    "short_name": "yourdreamcar",
+    "name": "Your Dream Cars",
+    "short_name": "Dream Cars",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#FFDD00",
-    "theme_color": "#FFDD00",
-    "description": "A new Flutter project.",
+    "background_color": "#FFFFFF",
+    "theme_color": "#031273",
+    "description": "Your Dream Cars — Buy, Sell, Drive",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

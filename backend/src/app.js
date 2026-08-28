@@ -10,7 +10,16 @@ function createApp(cloudinary) {
 
   app.set('trust proxy', 1);
   app.disable('x-powered-by');
-  app.use(compression());
+  app.use(
+    compression({
+      filter: (req, res) => {
+        if (req.headers.accept && req.headers.accept.includes('text/event-stream')) {
+          return false;
+        }
+        return compression.filter(req, res);
+      },
+    })
+  );
   app.use(cors({ origin: corsOrigin === '*' ? true : corsOrigin }));
   app.use(express.json({ limit: '1mb' }));
 

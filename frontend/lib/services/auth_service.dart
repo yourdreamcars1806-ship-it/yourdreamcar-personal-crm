@@ -14,28 +14,33 @@ class AuthService {
 
   static const _keyToken = 'auth_token';
   static const _keyEmail = 'auth_email';
+  static const _keyRole = 'auth_role';
+  static const _keyName = 'auth_name';
+  static const _keyRememberEmail = 'remember_email';
   static const _timeout = Duration(seconds: 25);
 
-  /// Saves token/email; never throws — login should still succeed if prefs channel fails.
-  static Future<void> _persistSession(String token, String email) async {
+  static Future<void> _persistSession({
+    required String token,
+    required String email,
+    required String role,
+    String name = '',
+  }) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_keyToken, token);
       await prefs.setString(_keyEmail, email);
+      await prefs.setString(_keyRole, role);
+      await prefs.setString(_keyName, name);
     } catch (e, st) {
       if (kDebugMode) {
-        debugPrint('[auth] SharedPreferences failed (session works until app restart): $e\n$st');
+        debugPrint('[auth] SharedPreferences failed: $e\n$st');
       }
     }
   }
 
-  Future<LoginResult> login(String email, String password) async {
+  Future<LoginResult> _postAuth(String path, Map<String, dynamic> body) async {
     final base = AppConfig.apiBaseUrl;
-    final uri = Uri.parse('$base/api/auth/login');
-
-    if (kDebugMode) {
-      debugPrint('[auth] POST $uri');
-    }
+    final uri = Uri.parse('$base$path');
 
     late final http.Response response;
     try {
@@ -43,7 +48,7 @@ class AuthService {
           .post(
             uri,
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'email': email.trim(), 'password': password}),
+            body: jsonEncode(body),
           )
           .timeout(_timeout);
     } catch (e, st) {
@@ -53,10 +58,10 @@ class AuthService {
       throw AuthException(_friendlyNetworkError(base, e));
     }
 
-    final body = response.body.isEmpty ? '{}' : response.body;
+    final raw = response.body.isEmpty ? '{}' : response.body;
     Map<String, dynamic> map;
     try {
-      map = jsonDecode(body) as Map<String, dynamic>;
+      map = jsonDecode(raw) as Map<String, dynamic>;
     } catch (_) {
       throw AuthException(
         'Server error (${response.statusCode}). Is the API running on $base?',
@@ -70,12 +75,33 @@ class AuthService {
       if (token == null || em == null) {
         throw AuthException('Unexpected response from server');
       }
-      await _persistSession(token, em);
-      return LoginResult(token: token, email: em);
+      final role = (user?['role'] as String? ?? 'admin').toLowerCase();
+      final name = (user?['name'] as String? ?? '').toString();
+      await _persistSession(token: token, email: em, role: role, name: name);
+      return LoginResult(token: token, email: em, role: role, name: name);
     }
 
     final err = map['error'] as String? ?? 'Login failed';
     throw AuthException(err);
+  }
+
+  Future<LoginResult> login(String email, String password) {
+    return _postAuth('/api/auth/login', {
+      'email': email.trim(),
+      'password': password,
+    });
+  }
+
+  Future<LoginResult> register({
+    required String email,
+    required String password,
+    String name = '',
+  }) {
+    return _postAuth('/api/auth/register', {
+      'email': email.trim(),
+      'password': password,
+      'name': name.trim(),
+    });
   }
 
   Future<void> changePassword({
@@ -130,6 +156,24 @@ class AuthService {
     throw AuthException(err);
   }
 
+  Future<AdminStatsRecord> fetchAdminStats() async {
+    final token = await getStoredToken();
+    if (token == null || token.isEmpty) {
+      throw AuthException('Session expired. Please login again.');
+    }
+    final base = AppConfig.apiBaseUrl;
+    final uri = Uri.parse('$base/api/auth/admin/stats');
+    final response = await _client
+        .get(uri, headers: {'Authorization': 'Bearer $token'})
+        .timeout(_timeout);
+    final map = jsonDecode(response.body.isEmpty ? '{}' : response.body)
+        as Map<String, dynamic>;
+    if (response.statusCode >= 400) {
+      throw AuthException(map['error']?.toString() ?? 'Failed to load stats');
+    }
+    return AdminStatsRecord.fromJson(map);
+  }
+
   static String _friendlyNetworkError(String base, Object e) {
     final raw = e.toString().toLowerCase();
     final buf = StringBuffer()
@@ -166,11 +210,60 @@ class AuthService {
     }
   }
 
+  static Future<String> getStoredRole() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return (prefs.getString(_keyRole) ?? 'admin').toLowerCase();
+    } catch (_) {
+      return 'admin';
+    }
+  }
+
+  static Future<String> getStoredEmail() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_keyEmail) ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  static Future<String> getStoredName() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_keyName) ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  static Future<String?> getRememberedEmail() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(_keyRememberEmail);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> setRememberedEmail(String? email) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (email == null || email.isEmpty) {
+        await prefs.remove(_keyRememberEmail);
+      } else {
+        await prefs.setString(_keyRememberEmail, email);
+      }
+    } catch (_) {}
+  }
+
   static Future<void> clearSession() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_keyToken);
       await prefs.remove(_keyEmail);
+      await prefs.remove(_keyRole);
+      await prefs.remove(_keyName);
     } catch (e) {
       if (kDebugMode) {
         debugPrint('[auth] clearSession: $e');
@@ -180,10 +273,17 @@ class AuthService {
 }
 
 class LoginResult {
-  LoginResult({required this.token, required this.email});
+  LoginResult({
+    required this.token,
+    required this.email,
+    required this.role,
+    this.name = '',
+  });
 
   final String token;
   final String email;
+  final String role;
+  final String name;
 }
 
 class AuthException implements Exception {
@@ -193,4 +293,29 @@ class AuthException implements Exception {
 
   @override
   String toString() => message;
+}
+
+class AdminStatsRecord {
+  const AdminStatsRecord({
+    required this.totalUsers,
+    required this.activeUsers,
+    required this.activeWindowMinutes,
+  });
+
+  final int totalUsers;
+  final int activeUsers;
+  final int activeWindowMinutes;
+
+  factory AdminStatsRecord.fromJson(Map<String, dynamic> json) {
+    int parseInt(dynamic v) {
+      if (v is num) return v.toInt();
+      return int.tryParse(v?.toString() ?? '') ?? 0;
+    }
+
+    return AdminStatsRecord(
+      totalUsers: parseInt(json['totalUsers']),
+      activeUsers: parseInt(json['activeUsers']),
+      activeWindowMinutes: parseInt(json['activeWindowMinutes']),
+    );
+  }
 }

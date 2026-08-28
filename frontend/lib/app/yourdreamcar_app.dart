@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../core/navigation/app_navigator.dart';
 import '../core/theme/app_theme.dart';
 import '../core/theme/theme_mode_store.dart';
+import '../core/ui/app_scroll_behavior.dart';
 import '../features/splash/presentation/splash_page.dart';
 
 class YourdreamcarApp extends StatefulWidget {
@@ -36,6 +38,8 @@ class _YourdreamcarAppState extends State<YourdreamcarApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Your Dream Car',
+      navigatorKey: AppNavigator.key,
+      scrollBehavior: const AppScrollBehavior(),
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: _darkMode ? ThemeMode.dark : ThemeMode.light,

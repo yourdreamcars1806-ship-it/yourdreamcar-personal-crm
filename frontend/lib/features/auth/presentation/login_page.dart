@@ -1,21 +1,24 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/assets.dart';
 import '../../../core/config/app_config.dart';
-import '../../../core/theme/login_colors.dart';
+import '../../../core/navigation/open_panel.dart';
+import '../../../core/theme/market_colors.dart';
+import '../../../core/ui/auth_chrome.dart';
 import '../../../core/ui/app_toast.dart';
 import '../../../services/auth_service.dart';
-import '../../shell/main_shell.dart';
+import 'signup_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({
     super.key,
     required this.darkModeEnabled,
     required this.onThemeChanged,
+    this.popOnSuccess = false,
   });
 
   final bool darkModeEnabled;
   final ValueChanged<bool> onThemeChanged;
+  final bool popOnSuccess;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -23,19 +26,27 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _auth = AuthService();
-  final _emailCtrl = TextEditingController(text: 'gafru@yourdreamcar.app');
+  final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _emailFocus = FocusNode();
   final _passwordFocus = FocusNode();
 
   bool _loading = false;
   bool _obscurePassword = true;
+  bool _rememberMe = true;
 
   @override
   void initState() {
     super.initState();
     _emailFocus.addListener(_onFocusChanged);
     _passwordFocus.addListener(_onFocusChanged);
+    _loadRemembered();
+  }
+
+  Future<void> _loadRemembered() async {
+    final saved = await AuthService.getRememberedEmail();
+    if (!mounted || saved == null || saved.isEmpty) return;
+    setState(() => _emailCtrl.text = saved);
   }
 
   @override
@@ -72,15 +83,15 @@ class _LoginPageState extends State<LoginPage> {
     FocusScope.of(context).unfocus();
     setState(() => _loading = true);
     try {
-      await _auth.login(email, password);
+      await AuthService.setRememberedEmail(_rememberMe ? email : null);
+      final result = await _auth.login(email, password);
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute<void>(
-          builder: (_) => MainShell(
-            darkModeEnabled: widget.darkModeEnabled,
-            onThemeChanged: widget.onThemeChanged,
-          ),
-        ),
+      finishAuthSession(
+        context,
+        result: result,
+        popCount: widget.popOnSuccess ? 1 : 0,
+        darkModeEnabled: widget.darkModeEnabled,
+        onThemeChanged: widget.onThemeChanged,
       );
     } on AuthException catch (e) {
       if (!mounted) return;
@@ -139,31 +150,13 @@ class _LoginPageState extends State<LoginPage> {
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Backend URL'),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: ctrl,
-                  keyboardType: TextInputType.url,
-                  autocorrect: false,
-                  decoration: const InputDecoration(
-                    hintText: 'http://192.168.1.5:5000',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Phone + PC same Wi‑Fi: PC का IP और port 5000.\n'
-                  'Emulator: http://10.0.2.2:5000',
-                  style: TextStyle(
-                    fontSize: 12,
-                    height: 1.35,
-                    color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
+          content: TextField(
+            controller: ctrl,
+            keyboardType: TextInputType.url,
+            autocorrect: false,
+            decoration: const InputDecoration(
+              hintText: 'https://your-service.up.railway.app',
+              border: OutlineInputBorder(),
             ),
           ),
           actions: [
@@ -172,8 +165,6 @@ class _LoginPageState extends State<LoginPage> {
                 await AppConfig.clearPersistedBaseUrl();
                 if (!ctx.mounted) return;
                 Navigator.pop(ctx);
-                if (!mounted) return;
-                AppToast.info(context, 'Using default URL');
               },
               child: const Text('Reset'),
             ),
@@ -182,8 +173,6 @@ class _LoginPageState extends State<LoginPage> {
                 await AppConfig.persistBaseUrlFromInput(ctrl.text);
                 if (!ctx.mounted) return;
                 Navigator.pop(ctx);
-                if (!mounted) return;
-                AppToast.success(context, 'Saved');
               },
               child: const Text('Save'),
             ),
@@ -197,282 +186,126 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FBFF),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        actions: [
-          IconButton(
-            tooltip: 'Server settings',
-            icon: Icon(
-              Icons.settings_outlined,
-              color: Color(0xFF4A5D8A),
+    return AuthScreenScaffold(
+      title: 'Welcome Back!',
+      subtitle: 'Login to buy, sell and manage ads',
+      trailing: IconButton(
+        tooltip: 'Server settings',
+        icon: const Icon(Icons.settings_outlined, color: Colors.white),
+        onPressed: _loading ? null : _openServerSettingsDialog,
+      ),
+      child: AutofillGroup(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+          AuthField(
+            icon: Icons.mail_outline_rounded,
+            hint: 'Email',
+            controller: _emailCtrl,
+            focusNode: _emailFocus,
+            enabled: !_loading,
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.email, AutofillHints.username],
+            onSubmitted: (_) => _passwordFocus.requestFocus(),
+          ),
+          const SizedBox(height: 12),
+          AuthField(
+            icon: Icons.lock_outline_rounded,
+            hint: 'Password',
+            controller: _passwordCtrl,
+            focusNode: _passwordFocus,
+            enabled: !_loading,
+            obscureText: _obscurePassword,
+            textInputAction: TextInputAction.done,
+            autofillHints: const [AutofillHints.password],
+            onSubmitted: (_) => _submit(),
+            trailing: IconButton(
+              visualDensity: VisualDensity.compact,
+              onPressed: _loading
+                  ? null
+                  : () => setState(() => _obscurePassword = !_obscurePassword),
+              icon: Icon(
+                _obscurePassword
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
+                color: MarketColors.muted,
+                size: 22,
+              ),
             ),
-            onPressed: _loading ? null : () => _openServerSettingsDialog(),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              SizedBox(
+                height: 24,
+                width: 24,
+                child: Checkbox(
+                  value: _rememberMe,
+                  activeColor: MarketColors.primary,
+                  side: const BorderSide(color: Color(0xFFC5D0E0)),
+                  onChanged: _loading
+                      ? null
+                      : (v) => setState(() => _rememberMe = v ?? false),
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Remember me',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: MarketColors.text,
+                ),
+              ),
+              const Spacer(),
+            ],
+          ),
+          const SizedBox(height: 8),
+          AuthPrimaryButton(
+            label: 'Login',
+            loading: _loading,
+            onPressed: _submit,
+          ),
+          const SizedBox(height: 18),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                "Don't have an account? ",
+                style: TextStyle(
+                  color: MarketColors.muted,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              GestureDetector(
+                onTap: _loading
+                    ? null
+                    : () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => SignupPage(
+                              darkModeEnabled: widget.darkModeEnabled,
+                              onThemeChanged: widget.onThemeChanged,
+                              popOnSuccess: widget.popOnSuccess,
+                            ),
+                          ),
+                        );
+                      },
+                child: const Text(
+                  'Sign Up',
+                  style: TextStyle(
+                    color: MarketColors.primary,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
-      ),
-      body: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          physics: _loading
-              ? const NeverScrollableScrollPhysics()
-              : const BouncingScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(18, 14, 18, 18 + bottomInset),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 4),
-              Center(
-                child: Container(
-                  width: 78,
-                  height: 78,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x22031273),
-                        blurRadius: 14,
-                        offset: Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Image.asset(AppAssets.logo, fit: BoxFit.cover),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const SizedBox(height: 4),
-              const Text(
-                'Login',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 34,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF0F2442),
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Welcome back!\nPlease login to continue',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  height: 1.35,
-                  fontWeight: FontWeight.w500,
-                  color: Color(0xFF4A5D8A),
-                ),
-              ),
-              const SizedBox(height: 8),
-              _LabeledFieldCard(
-                icon: Icons.email_rounded,
-                label: 'Email Address',
-                isFocused: _emailFocus.hasFocus,
-                child: TextField(
-                  controller: _emailCtrl,
-                  focusNode: _emailFocus,
-                  enabled: !_loading,
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  autofillHints: const [AutofillHints.email],
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: LoginColors.valueText,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    disabledBorder: InputBorder.none,
-                    errorBorder: InputBorder.none,
-                    focusedErrorBorder: InputBorder.none,
-                    filled: false,
-                    isDense: true,
-                    hintText: 'Your email address',
-                    hintStyle: TextStyle(
-                      color: LoginColors.hint,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  onSubmitted: (_) => _passwordFocus.requestFocus(),
-                ),
-              ),
-              const SizedBox(height: 12),
-              _LabeledFieldCard(
-                icon: Icons.lock_rounded,
-                label: 'Password',
-                isFocused: _passwordFocus.hasFocus,
-                trailing: IconButton(
-                  tooltip: _obscurePassword ? 'Show password' : 'Hide password',
-                  onPressed: _loading
-                      ? null
-                      : () {
-                          setState(() => _obscurePassword = !_obscurePassword);
-                        },
-                  splashRadius: 18,
-                  icon: Icon(
-                    _obscurePassword
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                    color: const Color(0xFF6A84AD),
-                    size: 22,
-                  ),
-                ),
-                child: TextField(
-                  controller: _passwordCtrl,
-                  focusNode: _passwordFocus,
-                  enabled: !_loading,
-                  obscureText: _obscurePassword,
-                  textInputAction: TextInputAction.done,
-                  autofillHints: const [AutofillHints.password],
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: LoginColors.valueText,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    disabledBorder: InputBorder.none,
-                    errorBorder: InputBorder.none,
-                    focusedErrorBorder: InputBorder.none,
-                    filled: false,
-                    isDense: true,
-                    hintText: 'Enter your password',
-                    hintStyle: TextStyle(
-                      color: LoginColors.hint,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  onSubmitted: (_) => _submit(),
-                ),
-              ),
-              const SizedBox(height: 22),
-              SizedBox(
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: _loading ? null : _submit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF031273),
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: const Color(0xFF5D6BA8),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: _loading
-                      ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.4,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text(
-                          'Login',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
   }
 }
 
-class _LabeledFieldCard extends StatelessWidget {
-  const _LabeledFieldCard({
-    required this.icon,
-    required this.label,
-    required this.child,
-    this.isFocused = false,
-    this.trailing,
-  });
-
-  final IconData icon;
-  final String label;
-  final Widget child;
-  final bool isFocused;
-  final Widget? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: isFocused ? const Color(0x1F031273) : const Color(0x12031273),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                icon,
-                size: 14,
-                color: isFocused ? const Color(0xFF031273) : const Color(0xFF4A5D8A),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: isFocused ? const Color(0xFF031273) : const Color(0xFF1D2F59),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          constraints: const BoxConstraints(minHeight: 52),
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: isFocused ? const Color(0xFF031273) : const Color(0xFFB8C5E6),
-              width: isFocused ? 1.4 : 1.1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: isFocused ? const Color(0x1F031273) : const Color(0x0D031273),
-                blurRadius: isFocused ? 14 : 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Expanded(child: child),
-              if (trailing != null) ...[
-                const SizedBox(width: 8),
-                trailing!,
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}

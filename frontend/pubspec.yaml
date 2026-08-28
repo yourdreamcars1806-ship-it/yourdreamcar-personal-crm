@@ -37,7 +37,11 @@ dependencies:
   http: ^1.2.2
   image_picker: ^1.1.2
   shared_preferences: ^2.3.3
+  path_provider: ^2.1.5
+  share_plus: ^10.1.4
   http_parser: ^4.1.2
+  google_fonts: ^6.2.1
+  flutter_local_notifications: ^18.0.1
 
 dev_dependencies:
   flutter_test:
@@ -97,6 +101,6 @@ flutter_launcher_icons:
   ios: false
   web:
     generate: true
-  image_path: assets/images/app_launcher_ydc.png
-  adaptive_icon_background: '#031273'
-  adaptive_icon_foreground: assets/images/app_launcher_ydc.png
+  image_path: assets/images/your_dream_cars_logo.png
+  adaptive_icon_background: '#FFFFFF'
+  adaptive_icon_foreground: assets/images/your_dream_cars_logo.png

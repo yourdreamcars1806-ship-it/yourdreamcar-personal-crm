@@ -513,7 +513,7 @@ class InventoryPageState extends State<InventoryPage> {
   }) async {
     if (!mounted || _busy) return;
     FocusScope.of(context).unfocus();
-    final caption = (String raw) => _dropdownCaption(label, raw);
+    String caption(String raw) => _dropdownCaption(label, raw);
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final fg = isDark ? Colors.white : const Color(0xFF16345E);
@@ -639,7 +639,7 @@ class InventoryPageState extends State<InventoryPage> {
     required List<String> options,
     required ValueChanged<String?> onChanged,
   }) {
-    final caption = (String raw) => _dropdownCaption(label, raw);
+    String caption(String raw) => _dropdownCaption(label, raw);
 
     const fieldStyle = TextStyle(
       color: _formInk,
@@ -848,14 +848,14 @@ class InventoryPageState extends State<InventoryPage> {
                 fieldCell(
                   _textField(
                     controller: _buyPriceController,
-                    label: 'Buy Price',
+                    label: 'Buy price (admin only)',
                     keyboardType: TextInputType.number,
                   ),
                 ),
                 fieldCell(
                   _textField(
                     controller: _sellPriceController,
-                    label: 'Sell Price',
+                    label: 'Sell price (public)',
                     keyboardType: TextInputType.number,
                   ),
                 ),
@@ -1449,14 +1449,14 @@ class _InventoryDetailCard extends StatelessWidget {
                           children: [
                             Expanded(
                               child: _PriceLine(
-                                label: 'Buy',
+                                label: 'Buy (admin)',
                                 value: _fmtPrice(car.buyPrice),
                                 muted: true,
                               ),
                             ),
                             Expanded(
                               child: _PriceLine(
-                                label: 'Sell',
+                                label: 'Sell (public)',
                                 value: _fmtPrice(car.sellPrice),
                                 muted: false,
                               ),
@@ -2122,14 +2122,14 @@ class _InventoryCarDetailsPageState extends State<InventoryCarDetailsPage> {
               children: [
                 Expanded(
                   child: _PriceLine(
-                    label: 'Buy price',
+                    label: 'Buy (admin)',
                     value: _fmtPrice(car.buyPrice),
                     muted: true,
                   ),
                 ),
                 Expanded(
                   child: _PriceLine(
-                    label: 'Sell price',
+                    label: 'Sell (public)',
                     value: _fmtPrice(car.sellPrice),
                     muted: false,
                   ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/brand_colors.dart';
 import '../../../core/ui/app_toast.dart';
+import '../../../services/auth_service.dart';
 import '../../../services/car_service.dart';
 import '../../../services/expense_service.dart';
 import '../../inventory/presentation/inventory_page.dart';
@@ -18,6 +19,7 @@ class DashboardPage extends StatefulWidget {
 
 class DashboardPageState extends State<DashboardPage> {
   final _carsApi = CarService();
+  final _authApi = AuthService();
   final _expenseApi = ExpenseService();
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode();
@@ -25,6 +27,9 @@ class DashboardPageState extends State<DashboardPage> {
   int _totalCars = 0;
   int _inStock = 0;
   int _outStock = 0;
+  int _activeUsers = 0;
+  int _totalUsers = 0;
+  int _activeWindowMinutes = 15;
   List<CarRecord> _allCars = [];
   List<CarRecord> _featuredCars = [];
   bool _loading = true;
@@ -58,10 +63,12 @@ class DashboardPageState extends State<DashboardPage> {
       _error = null;
     });
     try {
-      final res = await _carsApi.listCars(
-        limit: 160,
-        omitDescription: true,
-      );
+      final results = await Future.wait([
+        _carsApi.listCars(limit: 160, omitDescription: true),
+        _authApi.fetchAdminStats(),
+      ]);
+      final res = results[0] as CarListResponse;
+      final userStats = results[1] as AdminStatsRecord;
       if (!mounted) return;
       setState(() {
         _totalCars = res.total;
@@ -69,6 +76,9 @@ class DashboardPageState extends State<DashboardPage> {
         _outStock = res.outstock;
         _allCars = res.cars;
         _featuredCars = res.cars.take(4).toList();
+        _activeUsers = userStats.activeUsers;
+        _totalUsers = userStats.totalUsers;
+        _activeWindowMinutes = userStats.activeWindowMinutes;
         _loading = false;
       });
     } catch (e) {
@@ -499,6 +509,72 @@ class DashboardPageState extends State<DashboardPage> {
                         ),
                       ],
                     ),
+                  ),
+                ),
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPad,
+                    4,
+                    horizontalPad,
+                    8,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'App users',
+                        style: TextStyle(
+                          color: isDark
+                              ? const Color(0xFFE6EEFF)
+                              : const Color(0xFF16345E),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Live count — active in last $_activeWindowMinutes min',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: BrandColors.muted.withValues(alpha: 0.85),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final cardWidth = ((constraints.maxWidth - 10) / 2)
+                              .clamp(140.0, 360.0);
+                          return Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: [
+                              SizedBox(
+                                width: cardWidth,
+                                child: _MobileStatChip(
+                                  label: 'Active now',
+                                  value: _loading ? '—' : '$_activeUsers',
+                                  icon: Icons.sensors_rounded,
+                                  accent: const Color(0xFF22C55E),
+                                  dimmed: _loading,
+                                ),
+                              ),
+                              SizedBox(
+                                width: cardWidth,
+                                child: _MobileStatChip(
+                                  label: 'Total users',
+                                  value: _loading ? '—' : '$_totalUsers',
+                                  icon: Icons.people_alt_rounded,
+                                  accent: const Color(0xFF8B5CF6),
+                                  dimmed: _loading,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -1141,7 +1217,7 @@ class _FeaturedCarCard extends StatelessWidget {
                             children: [
                               Expanded(
                                 child: _PriceLabel(
-                                  label: 'Buy',
+                                  label: 'Buy (admin)',
                                   value: _fmtPrice(car.buyPrice),
                                   strong: false,
                                 ),
@@ -1153,7 +1229,7 @@ class _FeaturedCarCard extends StatelessWidget {
                               ),
                               Expanded(
                                 child: _PriceLabel(
-                                  label: 'Sell',
+                                  label: 'Sell (public)',
                                   value: _fmtPrice(car.sellPrice),
                                   strong: true,
                                   alignEnd: true,
