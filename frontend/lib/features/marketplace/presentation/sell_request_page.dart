@@ -140,7 +140,7 @@ class _SellRequestPageState extends State<SellRequestPage> {
             icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
           ),
           title: const Text(
-            'Add your car',
+            'Car listing request',
             style: TextStyle(fontWeight: FontWeight.w800),
           ),
         ),

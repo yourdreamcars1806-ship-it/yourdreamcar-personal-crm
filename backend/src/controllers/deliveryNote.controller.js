@@ -109,6 +109,13 @@ async function nextNoteNo() {
   return `${prefix}${String(seq).padStart(4, '0')}`;
 }
 
+async function resolveAssigneeUserId(body) {
+  const userEmail = String(body.userEmail || '').trim().toLowerCase();
+  if (!userEmail) return null;
+  const user = await User.findOne({ email: userEmail }).select('_id').lean();
+  return user?._id || null;
+}
+
 async function createNote(req, res) {
   try {
     const data = parseBody(req.body || {});
@@ -134,9 +141,16 @@ async function createNote(req, res) {
       data.balanceAmount = Math.max(0, data.totalPrice - data.amountReceived);
     }
 
+    const assigneeId = await resolveAssigneeUserId(req.body || {});
+    if (!assigneeId) {
+      return res.status(400).json({
+        error: 'Customer account email is required so the buyer can access this note',
+      });
+    }
+
     const doc = await DeliveryNote.create({
       ...data,
-      userId: req.userId,
+      userId: assigneeId,
     });
     return res.status(201).json({ deliveryNote: toDto(doc) });
   } catch (err) {
@@ -213,6 +227,10 @@ async function updateNote(req, res) {
     if (data.totalPrice != null && data.amountReceived != null && data.balanceAmount == null) {
       data.balanceAmount = Math.max(0, data.totalPrice - data.amountReceived);
     }
+    const assigneeId = await resolveAssigneeUserId(req.body || {});
+    if (assigneeId) {
+      doc.userId = assigneeId;
+    }
     Object.assign(doc, data);
     await doc.save();
     return res.json({ deliveryNote: toDto(doc) });
@@ -238,6 +256,10 @@ async function downloadPdf(req, res) {
     const doc = await DeliveryNote.findById(req.params.id).lean();
     if (!doc) {
       return res.status(404).json({ error: 'Delivery note not found' });
+    }
+    const isOwner = String(doc.userId) === String(req.userId);
+    if (!isOwner && req.userRole !== 'admin') {
+      return res.status(403).json({ error: 'Forbidden' });
     }
     const pdf = await buildDeliveryNotePdf(doc);
     const fileName = `${doc.deliveryNoteNo || 'delivery-note'}.pdf`.replace(/[^\w.-]+/g, '_');

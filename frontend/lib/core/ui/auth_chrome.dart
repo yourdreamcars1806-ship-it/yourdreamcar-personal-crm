@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../constants/assets.dart';
 import '../theme/market_colors.dart';
 import '../theme/market_theme.dart';
+import 'app_logo.dart';
 
 class AuthScreenScaffold extends StatelessWidget {
   const AuthScreenScaffold({
@@ -73,24 +73,7 @@ class AuthScreenScaffold extends StatelessWidget {
                             ?trailing,
                           ],
                         ),
-                        Container(
-                          width: 88,
-                          height: 88,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(22),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x66000000),
-                                blurRadius: 18,
-                                offset: Offset(0, 8),
-                              ),
-                            ],
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          padding: const EdgeInsets.all(6),
-                          child: Image.asset(AppAssets.logo, fit: BoxFit.contain),
-                        ),
+                        const AppLogo(width: 160),
                         const SizedBox(height: 12),
                         const Text(
                           'DREAM CAR',

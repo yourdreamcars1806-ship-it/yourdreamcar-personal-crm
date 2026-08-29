@@ -1,6 +1,8 @@
 /// Bundled image paths (see [pubspec.yaml] `flutter.assets`).
 abstract final class AppAssets {
-  static const String logo = 'assets/images/your_dream_cars_logo.png';
+  static const String logo = 'assets/images/ydc_logo.png';
+  static const String logoRound = 'assets/images/ydc_logo_round.png';
+  static const String favicon = 'assets/images/ydc_app_icon.png';
   static const String sampleCarListing = 'assets/images/sample_car_listing.png';
 
   static const List<String> splashCars = [

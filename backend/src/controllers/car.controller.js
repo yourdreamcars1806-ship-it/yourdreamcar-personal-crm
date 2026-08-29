@@ -31,8 +31,82 @@ function toClientCar(doc, admin) {
     delete o.buyDate;
     delete o.imagePublicId;
     delete o.__v;
+    o.exteriorImages = mapImagesForClient(o.exteriorImages, false);
+    o.interiorImages = mapImagesForClient(o.interiorImages, false);
   }
   return o;
+}
+
+function mapImagesForClient(images, admin) {
+  if (!Array.isArray(images)) return [];
+  return images
+    .map((img) => {
+      if (typeof img === 'string') return img.trim();
+      if (img && typeof img === 'object') {
+        if (admin) return img;
+        return String(img.url || '').trim();
+      }
+      return '';
+    })
+    .filter(Boolean);
+}
+
+function parseJsonUrlList(body, key) {
+  const raw = body?.[key];
+  if (raw == null || raw === '') return null;
+  if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
+  try {
+    const parsed = JSON.parse(String(raw));
+    if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
+  } catch (_e) {}
+  return null;
+}
+
+function getUploadFiles(req, field) {
+  const files = req.files?.[field];
+  return Array.isArray(files) ? files : [];
+}
+
+function getMainUploadFile(req) {
+  const fromFields = req.files?.image?.[0];
+  if (fromFields) return fromFields;
+  return req.file || null;
+}
+
+async function uploadMany(cloudinary, files, folder) {
+  if (!cloudinary || !files?.length) return [];
+  const uploaded = [];
+  for (const file of files) {
+    const result = await uploadImageBufferStream(cloudinary, file.buffer, folder);
+    uploaded.push({ url: result.secure_url, publicId: result.public_id });
+  }
+  return uploaded;
+}
+
+async function destroyImages(cloudinary, images) {
+  if (!cloudinary || !Array.isArray(images)) return;
+  for (const img of images) {
+    const publicId = img?.publicId || img?.public_id;
+    if (!publicId) continue;
+    try {
+      await cloudinary.uploader.destroy(publicId);
+    } catch (_e) {}
+  }
+}
+
+function mergeImageLists(existing, keepUrls, uploaded) {
+  const kept = [];
+  const wanted = new Set((keepUrls || []).map(String));
+  for (const url of wanted) {
+    const found = (existing || []).find((img) => img.url === url);
+    kept.push(found || { url, publicId: '' });
+  }
+  return [...kept, ...(uploaded || [])];
+}
+
+function removedImages(existing, keepUrls) {
+  const wanted = new Set((keepUrls || []).map(String));
+  return (existing || []).filter((img) => img?.url && !wanted.has(img.url));
 }
 
 async function getSummary() {
@@ -152,7 +226,8 @@ async function createCar(req, res, cloudinary) {
         error: 'Cloudinary is not configured. Set CLOUDINARY_* in .env',
       });
     }
-    if (!req.file) {
+    const mainFile = getMainUploadFile(req);
+    if (!mainFile) {
       return res.status(400).json({ error: 'image file is required' });
     }
 
@@ -164,18 +239,29 @@ async function createCar(req, res, cloudinary) {
 
     const uploaded = await uploadImageBufferStream(
       cloudinary,
-      req.file.buffer,
+      mainFile.buffer,
       'yourdreamcar/cars'
     );
     parsed.imageUrl = uploaded.secure_url;
     parsed.imagePublicId = uploaded.public_id;
+
+    parsed.exteriorImages = await uploadMany(
+      cloudinary,
+      getUploadFiles(req, 'exteriorImages'),
+      'yourdreamcar/cars/exterior'
+    );
+    parsed.interiorImages = await uploadMany(
+      cloudinary,
+      getUploadFiles(req, 'interiorImages'),
+      'yourdreamcar/cars/interior'
+    );
 
     const car = await Car.create(parsed);
     invalidateSummaryCache();
     notifyCarAdded(car).catch((err) => {
       console.error('[notify] car_added failed:', err.message);
     });
-    return res.status(201).json({ car });
+    return res.status(201).json({ car: toClientCar(car, true) });
   } catch (err) {
     const { status, message } = formatCarSaveError(err);
     return res.status(status).json({ error: message });
@@ -195,11 +281,14 @@ async function listCars(req, res) {
     const omitDesc = ['1', 'true', 'yes'].includes(
       String(req.query.omitDescription || '').trim().toLowerCase()
     );
+    const omitSummary = ['1', 'true', 'yes'].includes(
+      String(req.query.omitSummary || '').trim().toLowerCase()
+    );
     const admin = isAdminReq(req);
     const selectFields = admin
       ? omitDesc
-        ? '_id title vehicleNumber brand model fuelType ownership availability year buyPrice sellPrice buyDate saleDate imageUrl createdAt'
-        : '_id title vehicleNumber brand model fuelType ownership availability year buyPrice sellPrice buyDate saleDate description imageUrl createdAt'
+        ? '_id title vehicleNumber brand model fuelType ownership availability year buyPrice sellPrice buyDate saleDate imageUrl exteriorImages interiorImages createdAt'
+        : '_id title vehicleNumber brand model fuelType ownership availability year buyPrice sellPrice buyDate saleDate description imageUrl exteriorImages interiorImages createdAt'
       : omitDesc
         ? '_id title vehicleNumber brand model fuelType ownership availability year sellPrice saleDate imageUrl createdAt'
         : '_id title vehicleNumber brand model fuelType ownership availability year sellPrice saleDate description imageUrl createdAt';
@@ -210,8 +299,16 @@ async function listCars(req, res) {
         .sort({ createdAt: -1 })
         .limit(limit)
         .lean(),
-      getSummary(),
+      omitSummary
+        ? Promise.resolve(null)
+        : getSummary(),
     ]);
+
+    const resolvedSummary = summary ?? {
+      total: cars.length,
+      stock: cars.filter((c) => c.availability === 'stock').length,
+      outstock: cars.filter((c) => c.availability === 'outstock').length,
+    };
     res.set(
       'Cache-Control',
       admin
@@ -222,7 +319,7 @@ async function listCars(req, res) {
     );
     return res.json({
       cars: cars.map((c) => toClientCar(c, admin)),
-      summary,
+      summary: resolvedSummary,
     });
   } catch (err) {
     return res.status(500).json({ error: err.message || 'List cars failed' });
@@ -255,7 +352,8 @@ async function updateCar(req, res, cloudinary) {
       return res.status(400).json({ error: preValidate });
     }
 
-    if (req.file) {
+    const mainFile = getMainUploadFile(req);
+    if (mainFile) {
       if (!cloudinary) {
         return res.status(503).json({
           error: 'Cloudinary is not configured. Set CLOUDINARY_* in .env',
@@ -263,7 +361,7 @@ async function updateCar(req, res, cloudinary) {
       }
       const uploaded = await uploadImageBufferStream(
         cloudinary,
-        req.file.buffer,
+        mainFile.buffer,
         'yourdreamcar/cars'
       );
       if (car.imagePublicId) {
@@ -278,6 +376,33 @@ async function updateCar(req, res, cloudinary) {
       parsed.imagePublicId = car.imagePublicId;
     }
 
+    const keepExterior = parseJsonUrlList(req.body, 'exteriorImagesJson');
+    const keepInterior = parseJsonUrlList(req.body, 'interiorImagesJson');
+    const newExterior = await uploadMany(
+      cloudinary,
+      getUploadFiles(req, 'exteriorImages'),
+      'yourdreamcar/cars/exterior'
+    );
+    const newInterior = await uploadMany(
+      cloudinary,
+      getUploadFiles(req, 'interiorImages'),
+      'yourdreamcar/cars/interior'
+    );
+
+    if (keepExterior !== null) {
+      await destroyImages(cloudinary, removedImages(car.exteriorImages, keepExterior));
+      parsed.exteriorImages = mergeImageLists(car.exteriorImages, keepExterior, newExterior);
+    } else {
+      parsed.exteriorImages = [...(car.exteriorImages || []), ...newExterior];
+    }
+
+    if (keepInterior !== null) {
+      await destroyImages(cloudinary, removedImages(car.interiorImages, keepInterior));
+      parsed.interiorImages = mergeImageLists(car.interiorImages, keepInterior, newInterior);
+    } else {
+      parsed.interiorImages = [...(car.interiorImages || []), ...newInterior];
+    }
+
     const validationError = validatePayload(parsed, { requireImage: true });
     if (validationError) {
       return res.status(400).json({ error: validationError });
@@ -286,7 +411,7 @@ async function updateCar(req, res, cloudinary) {
     Object.assign(car, parsed);
     await car.save();
     invalidateSummaryCache();
-    return res.json({ car });
+    return res.json({ car: toClientCar(car, true) });
   } catch (err) {
     const { status, message } = formatCarSaveError(err);
     return res.status(status).json({ error: message });
@@ -299,10 +424,14 @@ async function deleteCar(req, res, cloudinary) {
     if (!car) {
       return res.status(404).json({ error: 'Car not found' });
     }
-    if (cloudinary && car.imagePublicId) {
-      try {
-        await cloudinary.uploader.destroy(car.imagePublicId);
-      } catch (_e) {}
+    if (cloudinary) {
+      if (car.imagePublicId) {
+        try {
+          await cloudinary.uploader.destroy(car.imagePublicId);
+        } catch (_e) {}
+      }
+      await destroyImages(cloudinary, car.exteriorImages);
+      await destroyImages(cloudinary, car.interiorImages);
     }
     await car.deleteOne();
     invalidateSummaryCache();

@@ -5,7 +5,7 @@ function toPublic(doc) {
   return {
     id: String(o._id || o.id || ''),
     type: o.type || 'car_added',
-    title: o.title || 'New Car Added!',
+    title: o.title || 'New Car Arrival!',
     body: o.body || '',
     carId: o.carId ? String(o.carId) : '',
     carTitle: o.carTitle || '',

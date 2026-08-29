@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/brand_colors.dart';
 import '../../../core/ui/app_toast.dart';
+import '../../../core/ui/frost_card.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/car_service.dart';
 import '../../../services/expense_service.dart';
@@ -99,23 +100,23 @@ class DashboardPageState extends State<DashboardPage> {
         accent: BrandColors.neonCyan,
       ),
       _StatItem(
-        label: 'In stock',
+        label: 'In Stock',
         value: _inStock,
         icon: Icons.inventory_2_rounded,
         accent: const Color(0xFF34D399),
       ),
       _StatItem(
-        label: 'Out stock',
+        label: 'Sold',
         value: _outStock,
         icon: Icons.hourglass_empty_rounded,
         accent: const Color(0xFFFB923C),
       ),
     ];
 
-    if (_stockFilter == 'In stock') {
+    if (_stockFilter == 'In Stock') {
       return [all[0], all[1]];
     }
-    if (_stockFilter == 'Out stock') {
+    if (_stockFilter == 'Sold') {
       return [all[0], all[2]];
     }
     return all;
@@ -126,10 +127,10 @@ class DashboardPageState extends State<DashboardPage> {
     final source = q.isEmpty ? _featuredCars : _allCars;
     return source
         .where((car) {
-          if (_stockFilter == 'In stock' && car.availability != 'stock') {
+          if (_stockFilter == 'In Stock' && car.availability != 'stock') {
             return false;
           }
-          if (_stockFilter == 'Out stock' && car.availability == 'stock') {
+          if (_stockFilter == 'Sold' && car.availability == 'stock') {
             return false;
           }
           if (q.isEmpty) return true;
@@ -185,56 +186,39 @@ class DashboardPageState extends State<DashboardPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Dashboard',
-                              style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w800,
-                                color: const Color(0xFF0F2442),
-                                letterSpacing: -0.5,
-                              ),
-                            ),
-                          ),
-                          if (_loading)
-                            const SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: BrandColors.neonCyan,
-                              ),
-                            ),
+                      DashboardHeroHeader(
+                        badge: 'ADMIN',
+                        title: 'Dashboard',
+                        subtitle: 'Live inventory, users & showroom overview',
+                        margin: EdgeInsets.zero,
+                        stats: [
+                          ('Cars', _loading ? '—' : '$_totalCars'),
+                          ('In Stock', _loading ? '—' : '$_inStock'),
+                          ('Active', _loading ? '—' : '$_activeUsers'),
                         ],
+                        trailing: _loading
+                            ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Material(
+                                color: Colors.white.withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(12),
+                                child: InkWell(
+                                  onTap: refreshStats,
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(10),
+                                    child: Icon(Icons.refresh_rounded, color: Colors.white),
+                                  ),
+                                ),
+                              ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Live inventory overview',
-                        style: TextStyle(
-                          fontSize: 13,
-                          height: 1.3,
-                          color: isDark
-                              ? const Color(0xFF9DB0CC)
-                              : const Color(0xFF55709A),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          _MiniInfoPill(
-                            icon: Icons.directions_car_rounded,
-                            text: '$_totalCars cars',
-                          ),
-                          const SizedBox(width: 8),
-                          _MiniInfoPill(
-                            icon: Icons.inventory_2_rounded,
-                            text: '$_inStock in stock',
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 16),
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 220),
                         curve: Curves.easeOut,
@@ -345,17 +329,17 @@ class DashboardPageState extends State<DashboardPage> {
                             ),
                             const SizedBox(width: 8),
                             _StockFilterChip(
-                              label: 'In stock',
-                              selected: _stockFilter == 'In stock',
+                              label: 'In Stock',
+                              selected: _stockFilter == 'In Stock',
                               onTap: () =>
-                                  setState(() => _stockFilter = 'In stock'),
+                                  setState(() => _stockFilter = 'In Stock'),
                             ),
                             const SizedBox(width: 8),
                             _StockFilterChip(
-                              label: 'Out stock',
-                              selected: _stockFilter == 'Out stock',
+                              label: 'Sold',
+                              selected: _stockFilter == 'Sold',
                               onTap: () =>
-                                  setState(() => _stockFilter = 'Out stock'),
+                                  setState(() => _stockFilter = 'Sold'),
                             ),
                             if (hasQuery) ...[
                               const SizedBox(width: 8),
@@ -888,42 +872,6 @@ class _StatItem {
   final Color accent;
 }
 
-class _MiniInfoPill extends StatelessWidget {
-  const _MiniInfoPill({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF162138) : Colors.white,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: isDark ? const Color(0xFF2F426A) : const Color(0xFFD4E4FF),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 14, color: const Color(0xFF1D63ED)),
-          const SizedBox(width: 6),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-              color: isDark ? const Color(0xFFB8C6DF) : const Color(0xFF3D5A84),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _StockFilterChip extends StatelessWidget {
   const _StockFilterChip({
     required this.label,
@@ -1177,7 +1125,7 @@ class _FeaturedCarCard extends StatelessWidget {
                                 ),
                               ),
                               child: Text(
-                                inStock ? 'In stock' : 'Out stock',
+                                inStock ? 'In Stock' : 'Sold',
                                 style: TextStyle(
                                   fontSize: 10.8,
                                   fontWeight: FontWeight.w800,
@@ -1422,8 +1370,15 @@ class _MobileStatChip extends StatelessWidget {
             padding: EdgeInsets.symmetric(horizontal: padH, vertical: padV),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
-              color: Colors.transparent,
-              border: Border.all(color: accent.withValues(alpha: 0.35)),
+              color: Colors.white,
+              border: Border.all(color: accent.withValues(alpha: 0.25)),
+              boxShadow: [
+                BoxShadow(
+                  color: accent.withValues(alpha: 0.12),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

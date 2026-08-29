@@ -11,8 +11,8 @@ async function notifyCarAdded(car) {
   const label = [title, year].filter(Boolean).join(' ');
   const doc = await Notification.create({
     type: 'car_added',
-    title: 'New Car Added!',
-    body: `${label} is now available. Tap to view details.`,
+    title: 'New Car Arrival!',
+    body: `${label} is live — bidding is open. Tap to view & place your bid.`,
     carId: car._id,
     carTitle: title,
     imageUrl: car.imageUrl || '',

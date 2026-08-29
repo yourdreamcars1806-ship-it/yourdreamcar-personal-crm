@@ -25,7 +25,7 @@ class BidService {
     };
   }
 
-  Future<BidRecord> create({
+  Future<BidCreateResult> create({
     required String carId,
     required double amount,
     required String name,
@@ -49,7 +49,10 @@ class BidService {
         .timeout(_timeout);
     final map = _readJson(response);
     _throwIfBad(response, map);
-    return BidRecord.fromJson(map['bid'] as Map<String, dynamic>? ?? {});
+    return BidCreateResult(
+      bid: BidRecord.fromJson(map['bid'] as Map<String, dynamic>? ?? {}),
+      instantWin: map['instantWin'] == true,
+    );
   }
 
   Future<List<BidRecord>> listMine() async {
@@ -70,20 +73,63 @@ class BidService {
     return _parseList(map);
   }
 
-  Future<BidRecord> updateStatus({
+  Future<BidUpdateResult> updateBid({
     required String id,
-    required String status,
+    double? amount,
+    String? status,
   }) async {
+    final body = <String, dynamic>{};
+    if (amount != null) body['amount'] = amount;
+    if (status != null) body['status'] = status;
     final response = await _client
         .patch(
           _uri('/api/bids/$id'),
           headers: await _headers(),
-          body: jsonEncode({'status': status}),
+          body: jsonEncode(body),
         )
         .timeout(_timeout);
     final map = _readJson(response);
     _throwIfBad(response, map);
-    return BidRecord.fromJson(map['bid'] as Map<String, dynamic>? ?? {});
+    return BidUpdateResult(
+      bid: BidRecord.fromJson(map['bid'] as Map<String, dynamic>? ?? {}),
+      instantWin: map['instantWin'] == true,
+    );
+  }
+
+  Future<BidUpdateResult> updateMyBid({
+    required String id,
+    required double amount,
+  }) async {
+    final response = await _client
+        .patch(
+          _uri('/api/bids/mine/$id'),
+          headers: await _headers(),
+          body: jsonEncode({'amount': amount}),
+        )
+        .timeout(_timeout);
+    final map = _readJson(response);
+    _throwIfBad(response, map);
+    return BidUpdateResult(
+      bid: BidRecord.fromJson(map['bid'] as Map<String, dynamic>? ?? {}),
+      instantWin: map['instantWin'] == true,
+    );
+  }
+
+  Future<void> deleteBid(String id) async {
+    final response = await _client
+        .delete(_uri('/api/bids/$id'), headers: await _headers())
+        .timeout(_timeout);
+    final map = _readJson(response);
+    _throwIfBad(response, map);
+  }
+
+  @Deprecated('Use updateBid')
+  Future<BidRecord> updateStatus({
+    required String id,
+    required String status,
+  }) async {
+    final result = await updateBid(id: id, status: status);
+    return result.bid;
   }
 
   List<BidRecord> _parseList(Map<String, dynamic> map) {
@@ -110,6 +156,20 @@ class BidService {
     final error = body['error'] ?? body['message'] ?? response.body;
     throw AuthException('$error');
   }
+}
+
+class BidCreateResult {
+  const BidCreateResult({required this.bid, required this.instantWin});
+
+  final BidRecord bid;
+  final bool instantWin;
+}
+
+class BidUpdateResult {
+  const BidUpdateResult({required this.bid, required this.instantWin});
+
+  final BidRecord bid;
+  final bool instantWin;
 }
 
 class BidRecord {

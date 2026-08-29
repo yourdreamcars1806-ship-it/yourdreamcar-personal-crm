@@ -4,7 +4,9 @@ const {
   createBid,
   listMine,
   listAll,
-  updateStatus,
+  updateBid,
+  updateMyBid,
+  deleteBid,
 } = require('../controllers/bid.controller');
 
 const router = express.Router();
@@ -12,6 +14,8 @@ router.use(requireAuth);
 router.get('/', listMine);
 router.post('/', createBid);
 router.get('/admin', requireAdmin, listAll);
-router.patch('/:id', requireAdmin, updateStatus);
+router.patch('/mine/:id', updateMyBid);
+router.patch('/:id', requireAdmin, updateBid);
+router.delete('/:id', requireAdmin, deleteBid);
 
 module.exports = router;

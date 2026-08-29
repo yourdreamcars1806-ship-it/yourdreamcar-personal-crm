@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/config/app_config.dart';
 import '../core/network/app_http_client.dart';
+import 'car_catalog_service.dart';
 import 'local_push.dart';
 
 class CarAlert {
@@ -23,7 +24,7 @@ class CarAlert {
   factory CarAlert.fromJson(Map<String, dynamic> json) {
     return CarAlert(
       id: (json['id'] ?? json['_id'] ?? '').toString(),
-      title: (json['title'] ?? 'New Car Added!').toString(),
+      title: (json['title'] ?? 'New Car Arrival!').toString(),
       body: (json['body'] ?? '').toString(),
       carId: (json['carId'] ?? '').toString(),
       carTitle: (json['carTitle'] ?? '').toString(),
@@ -63,7 +64,6 @@ class CarAlertService extends ChangeNotifier with WidgetsBindingObserver {
   http.Client? _sseClient;
   DateTime? _since;
   DateTime? _readAt;
-  AppLifecycleState _life = AppLifecycleState.resumed;
   final _emitted = <String>{};
 
   Future<void> start() async {
@@ -92,7 +92,6 @@ class CarAlertService extends ChangeNotifier with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _life = state;
     if (state == AppLifecycleState.resumed) {
       unawaited(refresh());
       unawaited(_listenSse());
@@ -205,16 +204,14 @@ class CarAlertService extends ChangeNotifier with WidgetsBindingObserver {
       notifyListeners();
       return;
     }
-    banner = alert;
+    CarCatalogService.instance.invalidate();
+    unawaited(CarCatalogService.instance.load(force: true));
     notifyListeners();
-    final background = _life != AppLifecycleState.resumed;
-    if (background) {
-      await LocalPush.showNewCar(
-        title: '${alert.title} 🏎️',
-        body: alert.body,
-        carId: alert.carId,
-      );
-    }
+    await LocalPush.showNewCar(
+      title: alert.title,
+      body: alert.body,
+      carId: alert.carId,
+    );
   }
 
   void dismissBanner() {

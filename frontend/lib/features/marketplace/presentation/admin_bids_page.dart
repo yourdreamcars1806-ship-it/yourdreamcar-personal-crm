@@ -5,6 +5,7 @@ import '../../../core/constants/assets.dart';
 import '../../../core/format/inr.dart';
 import '../../../core/ui/admin_list_header.dart';
 import '../../../core/ui/app_toast.dart';
+import '../../../core/ui/bid_amount_stepper.dart';
 import '../../../services/bid_service.dart';
 
 class AdminBidsPage extends StatefulWidget {
@@ -73,9 +74,61 @@ class _AdminBidsPageState extends State<AdminBidsPage> {
 
   Future<void> _setStatus(BidRecord bid, String status) async {
     try {
-      await _api.updateStatus(id: bid.id, status: status);
+      final result = await _api.updateBid(id: bid.id, status: status);
       if (!mounted) return;
-      AppToast.success(context, 'Bid ${status == 'accepted' ? 'accepted' : 'rejected'}');
+      if (result.instantWin) {
+        AppToast.success(context, 'Bid matched price — customer won!');
+      } else {
+        AppToast.success(context, 'Bid ${status == 'accepted' ? 'accepted' : 'rejected'}');
+      }
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      AppToast.error(context, e.toString());
+    }
+  }
+
+  Future<void> _updateAmount(BidRecord bid, double amount) async {
+    try {
+      final result = await _api.updateBid(id: bid.id, amount: amount);
+      if (!mounted) return;
+      if (result.instantWin) {
+        AppToast.success(context, 'Price matched — bid won & car marked sold!');
+      } else {
+        AppToast.success(context, 'Bid amount updated');
+      }
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      AppToast.error(context, e.toString());
+    }
+  }
+
+  Future<void> _deleteBid(BidRecord bid) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete bid?'),
+        content: Text(
+          'Remove ${bid.name.isEmpty ? bid.userName : bid.name}\'s bid on '
+          '${bid.carTitle.isEmpty ? 'this car' : bid.carTitle}? '
+          'This will also remove it from the user\'s account.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await _api.deleteBid(bid.id);
+      if (!mounted) return;
+      AppToast.success(context, 'Bid deleted');
       await _load();
     } catch (e) {
       if (!mounted) return;
@@ -94,6 +147,10 @@ class _AdminBidsPageState extends State<AdminBidsPage> {
       ),
       builder: (ctx) => _BidDetailSheet(
         bid: bid,
+        onAmountChanged: (amount) async {
+          Navigator.pop(ctx);
+          await _updateAmount(bid, amount);
+        },
         onAccept: bid.status == 'pending' ? () async {
           Navigator.pop(ctx);
           await _setStatus(bid, 'accepted');
@@ -102,6 +159,10 @@ class _AdminBidsPageState extends State<AdminBidsPage> {
           Navigator.pop(ctx);
           await _setStatus(bid, 'rejected');
         } : null,
+        onDelete: () async {
+          Navigator.pop(ctx);
+          await _deleteBid(bid);
+        },
       ),
     );
   }
@@ -213,6 +274,7 @@ class _AdminBidsPageState extends State<AdminBidsPage> {
                       onTap: () => _viewBid(b),
                       onAccept: b.status == 'pending' ? () => _setStatus(b, 'accepted') : null,
                       onReject: b.status == 'pending' ? () => _setStatus(b, 'rejected') : null,
+                      onDelete: () => _deleteBid(b),
                     );
                   },
                 ),
@@ -230,12 +292,14 @@ class _BidCard extends StatelessWidget {
     required this.onTap,
     this.onAccept,
     this.onReject,
+    this.onDelete,
   });
 
   final BidRecord bid;
   final VoidCallback onTap;
   final VoidCallback? onAccept;
   final VoidCallback? onReject;
+  final VoidCallback? onDelete;
 
   Color _statusColor() {
     switch (bid.status) {
@@ -302,6 +366,15 @@ class _BidCard extends StatelessWidget {
                                 ),
                               ),
                               _StatusBadge(status: bid.status),
+                              if (onDelete != null)
+                                IconButton(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                  icon: const Icon(Icons.delete_outline_rounded, size: 20, color: Color(0xFFDC2626)),
+                                  onPressed: onDelete,
+                                  tooltip: 'Delete bid',
+                                ),
                             ],
                           ),
                           const SizedBox(height: 6),
@@ -380,19 +453,37 @@ class _BidCard extends StatelessWidget {
   }
 }
 
-class _BidDetailSheet extends StatelessWidget {
+class _BidDetailSheet extends StatefulWidget {
   const _BidDetailSheet({
     required this.bid,
+    this.onAmountChanged,
     this.onAccept,
     this.onReject,
+    this.onDelete,
   });
 
   final BidRecord bid;
+  final ValueChanged<double>? onAmountChanged;
   final VoidCallback? onAccept;
   final VoidCallback? onReject;
+  final VoidCallback? onDelete;
+
+  @override
+  State<_BidDetailSheet> createState() => _BidDetailSheetState();
+}
+
+class _BidDetailSheetState extends State<_BidDetailSheet> {
+  late double _amount;
+
+  @override
+  void initState() {
+    super.initState();
+    _amount = widget.bid.amount;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final bid = widget.bid;
     final inset = MediaQuery.viewInsetsOf(context).bottom;
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 8, 20, inset + 24),
@@ -419,7 +510,32 @@ class _BidDetailSheet extends StatelessWidget {
                 ),
               ),
             const SizedBox(height: 16),
-            _DetailRow('Bid amount', formatInr(bid.amount)),
+            if (bid.status == 'pending' && widget.onAmountChanged != null) ...[
+              Text(
+                'Adjust bid (±₹5,000 like user)',
+                style: GoogleFonts.dmSans(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+              const SizedBox(height: 8),
+              BidAmountStepper(
+                amount: _amount,
+                askPrice: bid.askPrice,
+                onChanged: (v) => setState(() => _amount = v),
+              ),
+              const SizedBox(height: 10),
+              FilledButton(
+                onPressed: _amount.round() == bid.amount.round()
+                    ? null
+                    : () => widget.onAmountChanged?.call(_amount),
+                child: const Text('Update bid amount'),
+              ),
+              const SizedBox(height: 16),
+            ] else ...[
+              _DetailRow('Bid amount', formatInr(bid.amount)),
+            ],
             _DetailRow('Ask price', formatInr(bid.askPrice)),
             _DetailRow('Customer', bid.name.isEmpty ? bid.userName : bid.name),
             _DetailRow('Phone', bid.phone),
@@ -440,25 +556,37 @@ class _BidDetailSheet extends StatelessWidget {
                 child: Text(bid.message, style: GoogleFonts.dmSans(height: 1.45)),
               ),
             ],
-            if (onAccept != null || onReject != null) ...[
+            if (widget.onAccept != null || widget.onReject != null) ...[
               const SizedBox(height: 20),
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: onReject,
+                      onPressed: widget.onReject,
                       child: const Text('Reject'),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: FilledButton(
-                      onPressed: onAccept,
+                      onPressed: widget.onAccept,
                       style: FilledButton.styleFrom(backgroundColor: const Color(0xFF16A34A)),
                       child: const Text('Accept bid'),
                     ),
                   ),
                 ],
+              ),
+            ],
+            if (widget.onDelete != null) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: widget.onDelete,
+                icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                label: const Text('Delete bid'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFDC2626),
+                  side: const BorderSide(color: Color(0xFFFECACA)),
+                ),
               ),
             ],
           ],

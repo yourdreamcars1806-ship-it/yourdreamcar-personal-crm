@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -9,7 +11,6 @@ import '../../../services/car_alert_service.dart';
 import '../../../services/car_catalog_service.dart';
 import '../../../services/wishlist_service.dart';
 import 'my_ads_page.dart';
-import 'new_car_banner.dart';
 import 'sell_request_page.dart';
 import 'sold_cars_page.dart';
 import 'user_home_page.dart';
@@ -43,7 +44,8 @@ class _UserShellState extends State<UserShell> {
     super.initState();
     CarAlertService.instance.start();
     WishlistService.instance.start();
-    CarCatalogService.instance.load();
+    // Catalog prefetched from splash/main; refresh quietly if needed.
+    unawaited(CarCatalogService.instance.load());
     UserShell.openDashboard = _openDashboard;
   }
 
@@ -55,7 +57,7 @@ class _UserShellState extends State<UserShell> {
     super.dispose();
   }
 
-  Future<void> _openDashboard() async {
+  Future<void> _openDashboard({int initialTab = 0}) async {
     final ok = await ensureLoggedIn(
       context,
       darkModeEnabled: widget.darkModeEnabled,
@@ -66,7 +68,8 @@ class _UserShellState extends State<UserShell> {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => MyAdsPage(
-          key: ValueKey('ads-$_adsTick-$_sessionTick'),
+          key: ValueKey('ads-$_adsTick-$_sessionTick-$initialTab'),
+          initialTab: initialTab,
           onAddCar: _openAddCar,
           onBrowseCars: () {
             Navigator.of(context).pop();
@@ -143,7 +146,9 @@ class _UserShellState extends State<UserShell> {
           key: ValueKey('profile-$_sessionTick'),
           onLogout: _logout,
           onLogin: _openLogin,
-          onDashboard: _openDashboard,
+          onDashboard: () => _openDashboard(),
+          onSellCar: _openAddCar,
+          onCarRequests: () => _openDashboard(initialTab: 1),
         );
       case 0:
       default:
@@ -164,12 +169,7 @@ class _UserShellState extends State<UserShell> {
       child: Scaffold(
         backgroundColor: MarketColors.bg,
         extendBody: true,
-        body: Stack(
-          children: [
-            _buildPage(),
-            const NewCarBannerLayer(),
-          ],
-        ),
+        body: _buildPage(),
         bottomNavigationBar: ListenableBuilder(
           listenable: WishlistService.instance,
           builder: (context, _) {

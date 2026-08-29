@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/format/inr.dart';
+import '../../../core/ui/app_logo.dart';
 import '../../../core/ui/app_toast.dart';
 import '../../../services/delivery_note_service.dart';
 
@@ -53,6 +54,7 @@ class _DeliveryNoteFormPageState extends State<DeliveryNoteFormPage> {
   late final TextEditingController _signatureName;
   late final TextEditingController _authorizedName;
   late final TextEditingController _handedOverBy;
+  late final TextEditingController _userEmail;
 
   DateTime? _deliveryDate;
   String _paymentMode = '';
@@ -114,6 +116,7 @@ class _DeliveryNoteFormPageState extends State<DeliveryNoteFormPage> {
     );
     _authorizedName = TextEditingController(text: e?.authorizedSignatoryName ?? '');
     _handedOverBy = TextEditingController(text: e?.vehicleHandedOverBy ?? '');
+    _userEmail = TextEditingController(text: e?.userEmail ?? '');
     _deliveryDate = e?.deliveryDate ?? DateTime.now();
     _paymentMode = e?.paymentMode ?? '';
 
@@ -141,7 +144,7 @@ class _DeliveryNoteFormPageState extends State<DeliveryNoteFormPage> {
       _idProofType, _idProofNo, _vehicleBrand, _vehicleModel, _registrationNo,
       _year, _colour, _fuelType, _chassisNo, _engineNo, _odometer,
       _totalPrice, _amountReceived, _balance, _documents, _declarationName,
-      _signatureName, _authorizedName, _handedOverBy,
+      _signatureName, _authorizedName, _handedOverBy, _userEmail,
     ]) {
       c.dispose();
     }
@@ -220,6 +223,8 @@ class _DeliveryNoteFormPageState extends State<DeliveryNoteFormPage> {
       'signedAt': DateTime.now().toUtc().toIso8601String(),
       'authorizedSignatoryName': _authorizedName.text.trim(),
       'vehicleHandedOverBy': _handedOverBy.text.trim(),
+      if (widget.adminMode && _userEmail.text.trim().isNotEmpty)
+        'userEmail': _userEmail.text.trim().toLowerCase(),
     };
   }
 
@@ -256,6 +261,12 @@ class _DeliveryNoteFormPageState extends State<DeliveryNoteFormPage> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (widget.adminMode &&
+        widget.existing == null &&
+        _userEmail.text.trim().isEmpty) {
+      AppToast.error(context, 'Customer account email is required');
+      return;
+    }
     setState(() => _submitting = true);
     try {
       if (widget.existing != null && widget.adminMode) {
@@ -327,24 +338,50 @@ class _DeliveryNoteFormPageState extends State<DeliveryNoteFormPage> {
                           ),
                           Padding(
                             padding: const EdgeInsets.fromLTRB(20, 72, 20, 52),
-                            child: Column(
+                            child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'YOUR DREAM CARS',
-                                  style: GoogleFonts.dmSans(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 22,
-                                    letterSpacing: 0.6,
+                                Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.white.withValues(alpha: 0.95),
                                   ),
+                                  child: const AppLogo(round: true, width: 52),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Clover Hills Plaza, NIBM, Pune',
-                                  style: GoogleFonts.dmSans(
-                                    color: const Color(0xCCFFFFFF),
-                                    fontSize: 13,
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'YOUR DREAM CARS',
+                                        style: GoogleFonts.dmSans(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 20,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Clover Hills Plaza, NIBM, Pune',
+                                        style: GoogleFonts.dmSans(
+                                          color: const Color(0xCCFFFFFF),
+                                          fontSize: 12.5,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        'Vehicle delivery note',
+                                        style: GoogleFonts.dmSans(
+                                          color: const Color(0xFFFFC14A),
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 11,
+                                          letterSpacing: 0.8,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
@@ -371,6 +408,15 @@ class _DeliveryNoteFormPageState extends State<DeliveryNoteFormPage> {
                         title: 'Delivery details',
                         subtitle: 'Date, time & reference number',
                         children: [
+                          if (widget.adminMode && widget.existing == null)
+                            _field(
+                              _userEmail,
+                              'Customer account email',
+                              icon: Icons.alternate_email_rounded,
+                              required: true,
+                              hint: 'Buyer must have this login email',
+                              keyboard: TextInputType.emailAddress,
+                            ),
                           if (widget.adminMode)
                             _field(_noteNo, 'Delivery note no.', icon: Icons.tag_rounded),
                           Row(

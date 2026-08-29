@@ -4,6 +4,7 @@ import '../../../core/constants/assets.dart';
 import '../../../core/format/inr.dart';
 import '../../../core/theme/market_colors.dart';
 import '../../../core/theme/market_theme.dart';
+import '../../../core/ui/stock_status_badge.dart';
 import '../../../core/ui/sold_overlay.dart';
 import '../../../core/ui/wish_button.dart';
 import '../../../services/car_catalog_service.dart';
@@ -258,7 +259,10 @@ class _WishlistPageState extends State<WishlistPage> {
                                             ),
                                           ),
                                         ),
-                                        if (car.isSold) const SoldPill(),
+                                        StockStatusBadge(
+                                          isSold: car.isSold,
+                                          compact: true,
+                                        ),
                                       ],
                                     ),
                                   ],

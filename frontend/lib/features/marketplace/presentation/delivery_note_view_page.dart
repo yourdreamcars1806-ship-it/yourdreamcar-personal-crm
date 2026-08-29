@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/format/inr.dart';
+import '../../../core/ui/app_logo.dart';
 import '../../../services/delivery_note_service.dart';
 
 class DeliveryNoteViewPage extends StatelessWidget {
@@ -99,30 +100,74 @@ class DeliveryNoteViewPage extends StatelessWidget {
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(18),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x40003173),
+                    blurRadius: 18,
+                    offset: Offset(0, 8),
+                  ),
+                ],
               ),
-              child: Column(
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'YOUR DREAM CARS',
-                    style: GoogleFonts.dmSans(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 20,
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.95),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x33000000),
+                          blurRadius: 10,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
                     ),
+                    child: const AppLogo(round: true, width: 56),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Clover Hills Plaza, NIBM, Pune',
-                    style: GoogleFonts.dmSans(color: const Color(0xCCFFFFFF), fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    note.customerName.isNotEmpty ? note.customerName : 'Customer',
-                    style: GoogleFonts.dmSans(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'YOUR DREAM CARS',
+                          style: GoogleFonts.dmSans(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 18,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Clover Hills Plaza, NIBM, Pune',
+                          style: GoogleFonts.dmSans(
+                            color: const Color(0xCCFFFFFF),
+                            fontSize: 12.5,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'VEHICLE DELIVERY NOTE',
+                          style: GoogleFonts.dmSans(
+                            color: const Color(0xFFFFC14A),
+                            fontWeight: FontWeight.w800,
+                            fontSize: 11,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          note.customerName.isNotEmpty ? note.customerName : 'Customer',
+                          style: GoogleFonts.dmSans(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -217,11 +262,15 @@ class DeliveryNoteViewPage extends StatelessWidget {
           Container(
             width: 52,
             height: 52,
+            padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [_navy, _sky]),
-              borderRadius: BorderRadius.circular(16),
+              shape: BoxShape.circle,
+              color: Colors.white,
+              boxShadow: const [
+                BoxShadow(color: Color(0x22000000), blurRadius: 8, offset: Offset(0, 3)),
+              ],
             ),
-            child: const Icon(Icons.description_rounded, color: Colors.white),
+            child: const AppLogo(round: true, width: 46),
           ),
           const SizedBox(width: 14),
           Expanded(

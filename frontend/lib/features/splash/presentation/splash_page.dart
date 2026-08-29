@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/assets.dart';
 import '../../../core/navigation/open_panel.dart';
+import '../../../core/ui/app_logo.dart';
 import '../../../services/auth_service.dart';
+import '../../../services/car_catalog_service.dart';
 import '../../marketplace/presentation/user_shell.dart';
 
 class SplashPage extends StatefulWidget {
@@ -22,18 +25,20 @@ class SplashPage extends StatefulWidget {
 }
 
 class _SplashPageState extends State<SplashPage>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _drive;
+  late final AnimationController _intro;
+  late final Animation<double> _introFade;
+  late final Animation<double> _introScale;
   Timer? _navTimer;
 
+  /// Cars stay on the bottom road only.
   static const _traffic = [
-    _TrafficCar(lane: 0.10, speed: 0.55, phase: 0.02, reverse: false, width: 168, imageIndex: 0),
-    _TrafficCar(lane: 0.21, speed: 0.82, phase: 0.45, reverse: true, width: 156, imageIndex: 1),
-    _TrafficCar(lane: 0.67, speed: 0.7, phase: 0.18, reverse: false, width: 172, imageIndex: 2),
-    _TrafficCar(lane: 0.77, speed: 1.05, phase: 0.62, reverse: true, width: 150, imageIndex: 3),
-    _TrafficCar(lane: 0.87, speed: 0.6, phase: 0.30, reverse: false, width: 180, imageIndex: 4),
-    _TrafficCar(lane: 0.12, speed: 0.95, phase: 0.78, reverse: true, width: 140, imageIndex: 2),
-    _TrafficCar(lane: 0.72, speed: 0.48, phase: 0.88, reverse: false, width: 164, imageIndex: 1),
+    _TrafficCar(lane: 0.74, speed: 0.62, phase: 0.05, reverse: false, width: 158, imageIndex: 0),
+    _TrafficCar(lane: 0.80, speed: 0.88, phase: 0.42, reverse: true, width: 148, imageIndex: 1),
+    _TrafficCar(lane: 0.86, speed: 0.72, phase: 0.22, reverse: false, width: 162, imageIndex: 2),
+    _TrafficCar(lane: 0.92, speed: 1.0, phase: 0.58, reverse: true, width: 142, imageIndex: 3),
+    _TrafficCar(lane: 0.78, speed: 0.54, phase: 0.76, reverse: false, width: 152, imageIndex: 4),
   ];
 
   @override
@@ -41,9 +46,19 @@ class _SplashPageState extends State<SplashPage>
     super.initState();
     _drive = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 6),
+      duration: const Duration(seconds: 5),
     )..repeat();
-    _navTimer = Timer(const Duration(milliseconds: 3400), _leaveSplash);
+    _intro = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _introFade = CurvedAnimation(parent: _intro, curve: Curves.easeOut);
+    _introScale = Tween<double>(begin: 0.88, end: 1).animate(
+      CurvedAnimation(parent: _intro, curve: Curves.easeOutBack),
+    );
+    _intro.forward();
+    unawaited(CarCatalogService.instance.bootstrap());
+    _navTimer = Timer(const Duration(milliseconds: 2200), _leaveSplash);
   }
 
   Future<void> _leaveSplash() async {
@@ -98,6 +113,7 @@ class _SplashPageState extends State<SplashPage>
   void dispose() {
     _navTimer?.cancel();
     _drive.dispose();
+    _intro.dispose();
     super.dispose();
   }
 
@@ -112,14 +128,39 @@ class _SplashPageState extends State<SplashPage>
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFF001A4A),
-                  Color(0xFF003EA8),
+                  Color(0xFF001040),
+                  Color(0xFF002D7A),
                   Color(0xFF0056D2),
-                  Color(0xFF1A7CFF),
+                  Color(0xFF1A6FE8),
                 ],
+                stops: [0, 0.35, 0.72, 1],
+              ),
+            ),
+          ),
+          Positioned(
+            right: -60,
+            top: -40,
+            child: Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.06),
+              ),
+            ),
+          ),
+          Positioned(
+            left: -80,
+            top: 120,
+            child: Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFFFC14A).withValues(alpha: 0.07),
               ),
             ),
           ),
@@ -139,59 +180,41 @@ class _SplashPageState extends State<SplashPage>
                 children: [
                   for (final car in _traffic)
                     _placedCar(size, car, _drive.value),
+                  _ParkedShowcase(screenWidth: size.width, screenHeight: size.height),
                 ],
               );
             },
           ),
-          const DecoratedBox(
+          DecoratedBox(
             decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment.center,
-                radius: 0.72,
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
                 colors: [
-                  Color(0x99002A74),
-                  Color(0x00000000),
+                  Colors.black.withValues(alpha: 0.18),
+                  Colors.transparent,
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.12),
                 ],
+                stops: const [0, 0.28, 0.62, 1],
               ),
             ),
           ),
           SafeArea(
-            child: Column(
-              children: [
-                const Spacer(flex: 2),
-                const _CenterLogo(),
-                const Spacer(),
-                const Text(
-                  'Your Dream Car',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.4,
-                    color: Colors.white,
-                  ),
+            child: FadeTransition(
+              opacity: _introFade,
+              child: ScaleTransition(
+                scale: _introScale,
+                child: Column(
+                  children: [
+                    const SizedBox(height: 32),
+                    const _TopBrand(),
+                    const Spacer(),
+                    _BottomLoader(progress: _drive),
+                    const SizedBox(height: 32),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'BUY  •  SELL  •  DRIVE',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 2.2,
-                    color: Colors.white.withValues(alpha: 0.78),
-                  ),
-                ),
-                const SizedBox(height: 28),
-                const SizedBox(
-                  width: 28,
-                  height: 28,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.4,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 40),
-              ],
+              ),
             ),
           ),
         ],
@@ -226,6 +249,169 @@ class _SplashPageState extends State<SplashPage>
   }
 }
 
+class _ParkedShowcase extends StatelessWidget {
+  const _ParkedShowcase({
+    required this.screenWidth,
+    required this.screenHeight,
+  });
+
+  final double screenWidth;
+  final double screenHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned(
+          left: screenWidth * 0.08,
+          top: screenHeight * 0.66,
+          width: 120,
+          child: Opacity(
+            opacity: 0.92,
+            child: Image.asset(
+              AppAssets.splashCars[4],
+              fit: BoxFit.contain,
+            ),
+          ),
+        ),
+        Positioned(
+          right: screenWidth * 0.06,
+          top: screenHeight * 0.68,
+          width: 130,
+          child: Opacity(
+            opacity: 0.88,
+            child: Image.asset(
+              AppAssets.splashCars[2],
+              fit: BoxFit.contain,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TopBrand extends StatelessWidget {
+  const _TopBrand();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(5),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withValues(alpha: 0.95),
+                Colors.white.withValues(alpha: 0.78),
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.28),
+                blurRadius: 28,
+                offset: const Offset(0, 10),
+              ),
+              BoxShadow(
+                color: const Color(0xFFFFC14A).withValues(alpha: 0.25),
+                blurRadius: 20,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: const Color(0xFFFFC14A).withValues(alpha: 0.55),
+                width: 2,
+              ),
+            ),
+            child: const AppLogo(round: true, width: 116),
+          ),
+        ),
+        const SizedBox(height: 22),
+        ShaderMask(
+          shaderCallback: (bounds) => const LinearGradient(
+            colors: [Colors.white, Color(0xFFE8F0FF)],
+          ).createShader(bounds),
+          child: const Text(
+            'Your Dream Car',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 30,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.3,
+              color: Colors.white,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: Text(
+                'BUY  •  SELL  •  DRIVE',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 2.4,
+                  color: Colors.white.withValues(alpha: 0.92),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BottomLoader extends StatelessWidget {
+  const _BottomLoader({required this.progress});
+
+  final Animation<double> progress;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 32,
+          height: 32,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.6,
+            color: Colors.white.withValues(alpha: 0.95),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          'Loading your marketplace…',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.white.withValues(alpha: 0.72),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _TrafficCar {
   const _TrafficCar({
     required this.lane,
@@ -251,28 +437,39 @@ class _RoadPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final roadTop = size.height * 0.58;
-    final road = Paint()..color = const Color(0x33000000);
-    canvas.drawRect(Rect.fromLTWH(0, roadTop, size.width, size.height), road);
+    final roadTop = size.height * 0.62;
+
+    final roadGrad = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          const Color(0xFF0A1628).withValues(alpha: 0.0),
+          const Color(0xFF0A1628).withValues(alpha: 0.55),
+          const Color(0xFF050D18).withValues(alpha: 0.85),
+        ],
+        stops: const [0, 0.35, 1],
+      ).createShader(Rect.fromLTWH(0, roadTop, size.width, size.height - roadTop));
+    canvas.drawRect(Rect.fromLTWH(0, roadTop, size.width, size.height - roadTop), roadGrad);
 
     final edge = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..color = const Color(0x66FFFFFF);
-    canvas.drawLine(Offset(0, roadTop + 10), Offset(size.width, roadTop + 10), edge);
+      ..strokeWidth = 2.5
+      ..color = Colors.white.withValues(alpha: 0.35);
+    canvas.drawLine(Offset(0, roadTop + 8), Offset(size.width, roadTop + 8), edge);
     canvas.drawLine(
-      Offset(0, size.height - 18),
-      Offset(size.width, size.height - 18),
+      Offset(0, size.height - 14),
+      Offset(size.width, size.height - 14),
       edge,
     );
 
     final dashPaint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
+      ..strokeWidth = 3.5
       ..strokeCap = StrokeCap.round
-      ..color = const Color(0xCCFFD54F);
+      ..color = const Color(0xE6FFD54F);
 
-    for (final yFrac in [0.70, 0.82]) {
+    for (final yFrac in [0.74, 0.84, 0.93]) {
       _dashed(
         canvas,
         Offset(0, size.height * yFrac),
@@ -290,8 +487,8 @@ class _RoadPainter extends CustomPainter {
     Paint paint,
     double t,
   ) {
-    const dash = 28.0;
-    const gap = 22.0;
+    const dash = 26.0;
+    const gap = 20.0;
     final path = Path()
       ..moveTo(a.dx, a.dy)
       ..lineTo(b.dx, b.dy);
@@ -311,34 +508,5 @@ class _RoadPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _RoadPainter oldDelegate) {
     return oldDelegate.progress != progress;
-  }
-}
-
-class _CenterLogo extends StatelessWidget {
-  const _CenterLogo();
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        width: 108,
-        height: 108,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x66000000),
-              blurRadius: 22,
-              offset: Offset(0, 10),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        padding: const EdgeInsets.all(8),
-        child: Image.asset(AppAssets.logo, fit: BoxFit.contain),
-      ),
-    );
   }
 }

@@ -6,6 +6,8 @@ import '../../../core/format/inr.dart';
 import '../../../core/theme/market_colors.dart';
 import '../../../core/theme/market_theme.dart';
 import '../../../core/ui/app_toast.dart';
+import '../../../core/ui/bid_amount_stepper.dart';
+import '../../../core/ui/live_bid_timer.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/bid_service.dart';
 import '../../../services/car_service.dart';
@@ -20,7 +22,8 @@ class BidFormPage extends StatefulWidget {
   State<BidFormPage> createState() => _BidFormPageState();
 }
 
-class _BidFormPageState extends State<BidFormPage> {
+class _BidFormPageState extends State<BidFormPage>
+    with TickerProviderStateMixin, LiveBidSessionMixin {
   final _api = BidService();
   final _amount = TextEditingController();
   final _name = TextEditingController();
@@ -33,10 +36,14 @@ class _BidFormPageState extends State<BidFormPage> {
   final _cityFocus = FocusNode();
   final _messageFocus = FocusNode();
   bool _loading = false;
+  double _offerAmount = 0;
 
   @override
   void initState() {
     super.initState();
+    initLiveBidSession();
+    _offerAmount = _roundOffer(widget.car.sellPrice).toDouble();
+    _amount.text = '${_offerAmount.round()}';
     _prefill();
     _amount.addListener(_tick);
     _amountFocus.addListener(_tick);
@@ -58,6 +65,7 @@ class _BidFormPageState extends State<BidFormPage> {
 
   @override
   void dispose() {
+    disposeLiveBidSession();
     _amount.dispose();
     _name.dispose();
     _phone.dispose();
@@ -71,8 +79,15 @@ class _BidFormPageState extends State<BidFormPage> {
     super.dispose();
   }
 
-  double? get _bidAmount {
-    return double.tryParse(_amount.text.replaceAll(',', '').trim());
+  double? get _bidAmount => _offerAmount;
+
+  void _setOffer(double value) {
+    final rounded = _roundOffer(value).toDouble();
+    setState(() {
+      _offerAmount = rounded;
+      _amount.text = '${rounded.round()}';
+      _amount.selection = TextSelection.collapsed(offset: _amount.text.length);
+    });
   }
 
   List<int> get _chips {
@@ -115,7 +130,7 @@ class _BidFormPageState extends State<BidFormPage> {
     FocusScope.of(context).unfocus();
     setState(() => _loading = true);
     try {
-      await _api.create(
+      final result = await _api.create(
         carId: widget.car.id,
         amount: amount,
         name: _name.text.trim(),
@@ -124,7 +139,11 @@ class _BidFormPageState extends State<BidFormPage> {
         message: _message.text.trim(),
       );
       if (!mounted) return;
-      AppToast.success(context, 'Bid submitted. Check your dashboard.');
+      if (result.instantWin) {
+        AppToast.success(context, 'You won! Bid matched the sell price.');
+      } else {
+        AppToast.success(context, 'Bid submitted. Check your dashboard.');
+      }
       Navigator.of(context).pop(true);
       UserShell.openDashboard?.call();
     } catch (e) {
@@ -139,7 +158,6 @@ class _BidFormPageState extends State<BidFormPage> {
   Widget build(BuildContext context) {
     final car = widget.car;
     final title = car.title.isNotEmpty ? car.title : '${car.brand} ${car.model}';
-    final top = MediaQuery.paddingOf(context).top;
     final keyboard = MediaQuery.viewInsetsOf(context).bottom;
     final amount = _bidAmount;
     final ask = car.sellPrice;
@@ -150,6 +168,33 @@ class _BidFormPageState extends State<BidFormPage> {
       child: Scaffold(
         backgroundColor: MarketColors.bg,
         resizeToAvoidBottomInset: true,
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF0056D2),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          leading: IconButton(
+            tooltip: 'Back',
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: const Icon(Icons.arrow_back_rounded),
+          ),
+          title: const Text(
+            'Place your bid',
+            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+          ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Center(
+                child: LiveBidTimerDisplay(
+                  elapsed: liveElapsed,
+                  pulse: livePulse,
+                  compact: true,
+                ),
+              ),
+            ),
+          ],
+        ),
         body: Column(
           children: [
             Expanded(
@@ -161,57 +206,9 @@ class _BidFormPageState extends State<BidFormPage> {
                 ),
                 slivers: [
                   SliverToBoxAdapter(
-                    child: Container(
-                      width: double.infinity,
-                      padding: EdgeInsets.fromLTRB(8, top + 4, 16, 28),
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Color(0xFF003EA8),
-                            Color(0xFF0056D2),
-                            Color(0xFF3D8BFF),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.vertical(
-                          bottom: Radius.circular(28),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          IconButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            icon: const Icon(
-                              Icons.arrow_back_ios_new_rounded,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.fromLTRB(12, 4, 8, 0),
-                            child: Text(
-                              'Place your bid',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 26,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.fromLTRB(12, 6, 8, 8),
-                            child: Text(
-                              'Send an offer. Our team will call you back.',
-                              style: TextStyle(
-                                color: Color(0xD9FFFFFF),
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                    child: LiveBidTimerBanner(
+                      elapsed: liveElapsed,
+                      pulse: livePulse,
                     ),
                   ),
                   SliverToBoxAdapter(
@@ -229,6 +226,9 @@ class _BidFormPageState extends State<BidFormPage> {
                             formatted: amount == null ? '' : formatInr(amount),
                             diffLabel: _diffLabel(diff),
                             diffColor: _diffColor(diff),
+                            askPrice: ask,
+                            offerAmount: _offerAmount,
+                            onStep: _setOffer,
                           ),
                           if (_chips.isNotEmpty) ...[
                             const SizedBox(height: 12),
@@ -242,13 +242,7 @@ class _BidFormPageState extends State<BidFormPage> {
                                     selected: amount?.round() == chip,
                                     onTap: _loading
                                         ? null
-                                        : () {
-                                            _amount.text = '$chip';
-                                            _amount.selection =
-                                                TextSelection.collapsed(
-                                              offset: _amount.text.length,
-                                            );
-                                          },
+                                        : () => _setOffer(chip.toDouble()),
                                   ),
                               ],
                             ),
@@ -487,6 +481,9 @@ class _AmountCard extends StatelessWidget {
     required this.formatted,
     required this.diffLabel,
     required this.diffColor,
+    required this.askPrice,
+    required this.offerAmount,
+    required this.onStep,
   });
 
   final TextEditingController controller;
@@ -495,6 +492,9 @@ class _AmountCard extends StatelessWidget {
   final String formatted;
   final String diffLabel;
   final Color diffColor;
+  final double askPrice;
+  final double offerAmount;
+  final ValueChanged<double> onStep;
 
   @override
   Widget build(BuildContext context) {
@@ -521,48 +521,37 @@ class _AmountCard extends StatelessWidget {
               color: MarketColors.text,
             ),
           ),
-          const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const Text(
-                '₹',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w900,
-                  color: MarketColors.primary,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  focusNode: focusNode,
-                  enabled: enabled,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 0.2,
-                    color: MarketColors.text,
-                  ),
-                  decoration: const InputDecoration(
-                    hintText: '0',
-                    hintStyle: TextStyle(
-                      color: Color(0xFFC5D0E0),
-                      fontWeight: FontWeight.w800,
-                    ),
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              ),
-            ],
+          const SizedBox(height: 12),
+          BidAmountStepper(
+            amount: offerAmount,
+            onChanged: onStep,
+            enabled: enabled,
+            askPrice: askPrice,
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: controller,
+            focusNode: focusNode,
+            enabled: enabled,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            onChanged: (v) {
+              final n = double.tryParse(v.trim());
+              if (n != null && n >= 1) onStep(n);
+            },
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: MarketColors.text,
+            ),
+            decoration: const InputDecoration(
+              labelText: 'Or type amount',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
           ),
           if (formatted.isNotEmpty) ...[
-            const SizedBox(height: 2),
+            const SizedBox(height: 8),
             Text(
               formatted,
               style: const TextStyle(

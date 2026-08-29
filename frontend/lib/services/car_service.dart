@@ -38,15 +38,27 @@ String _mimeForImagePath(String path) {
   }
 }
 
-Future<http.MultipartFile> _imageMultipart(File file) async {
+Future<http.MultipartFile> _imageMultipart(File file, {String field = 'image'}) async {
   final name = _basename(file.path);
   final safeName = name.contains('.') ? name : '$name.jpg';
   return http.MultipartFile.fromPath(
-    'image',
+    field,
     file.path,
     filename: safeName,
     contentType: MediaType.parse(_mimeForImagePath(safeName)),
   );
+}
+
+List<String> _parseUrlList(dynamic raw) {
+  if (raw is! List) return const [];
+  return raw
+      .map((item) {
+        if (item is String) return item.trim();
+        if (item is Map) return (item['url'] ?? '').toString().trim();
+        return '';
+      })
+      .where((url) => url.isNotEmpty)
+      .toList();
 }
 
 class CarService {
@@ -72,6 +84,7 @@ class CarService {
   Future<CarListResponse> listCars({
     int? limit,
     bool omitDescription = false,
+    bool omitSummary = false,
   }) async {
     final q = <String, String>{};
     if (limit != null && limit > 0) {
@@ -79,6 +92,9 @@ class CarService {
     }
     if (omitDescription) {
       q['omitDescription'] = '1';
+    }
+    if (omitSummary) {
+      q['omitSummary'] = '1';
     }
     final uri = _uri('/api/cars').replace(queryParameters: q.isEmpty ? null : q);
     final response = await _client
@@ -114,11 +130,19 @@ class CarService {
   Future<CarRecord> createCar({
     required Map<String, String> fields,
     required File imageFile,
+    List<File> exteriorImages = const [],
+    List<File> interiorImages = const [],
   }) async {
     final request = http.MultipartRequest('POST', _uri('/api/cars'));
     request.headers.addAll(await _authHeaders(required: true));
     request.fields.addAll(fields);
     request.files.add(await _imageMultipart(imageFile));
+    for (final file in exteriorImages) {
+      request.files.add(await _imageMultipart(file, field: 'exteriorImages'));
+    }
+    for (final file in interiorImages) {
+      request.files.add(await _imageMultipart(file, field: 'interiorImages'));
+    }
     final response = await http.Response.fromStream(
       await _client.send(request),
     ).timeout(_timeout);
@@ -131,12 +155,24 @@ class CarService {
     required String id,
     required Map<String, String> fields,
     File? imageFile,
+    List<File> exteriorImages = const [],
+    List<File> interiorImages = const [],
+    List<String> keepExteriorUrls = const [],
+    List<String> keepInteriorUrls = const [],
   }) async {
     final request = http.MultipartRequest('PUT', _uri('/api/cars/$id'));
     request.headers.addAll(await _authHeaders(required: true));
     request.fields.addAll(fields);
+    request.fields['exteriorImagesJson'] = jsonEncode(keepExteriorUrls);
+    request.fields['interiorImagesJson'] = jsonEncode(keepInteriorUrls);
     if (imageFile != null) {
       request.files.add(await _imageMultipart(imageFile));
+    }
+    for (final file in exteriorImages) {
+      request.files.add(await _imageMultipart(file, field: 'exteriorImages'));
+    }
+    for (final file in interiorImages) {
+      request.files.add(await _imageMultipart(file, field: 'interiorImages'));
     }
     final response = await http.Response.fromStream(
       await _client.send(request),
@@ -205,11 +241,13 @@ class CarRecord {
     this.saleDate,
     required this.description,
     required this.imageUrl,
+    this.exteriorImages = const [],
+    this.interiorImages = const [],
   });
 
   factory CarRecord.fromJson(Map<String, dynamic> json) {
     return CarRecord(
-      id: (json['_id'] ?? '').toString(),
+      id: (json['_id'] ?? json['id'] ?? '').toString(),
       title: (json['title'] ?? '').toString(),
       vehicleNumber: (json['vehicleNumber'] ?? '').toString(),
       brand: (json['brand'] ?? '').toString(),
@@ -226,6 +264,8 @@ class CarRecord {
       saleDate: DateTime.tryParse((json['saleDate'] ?? '').toString()),
       description: (json['description'] ?? '').toString(),
       imageUrl: (json['imageUrl'] ?? '').toString(),
+      exteriorImages: _parseUrlList(json['exteriorImages']),
+      interiorImages: _parseUrlList(json['interiorImages']),
     );
   }
 
@@ -244,8 +284,60 @@ class CarRecord {
   final DateTime? saleDate;
   final String description;
   final String imageUrl;
+  final List<String> exteriorImages;
+  final List<String> interiorImages;
 
   bool get isSold => availability.toLowerCase() == 'outstock';
+
+  /// User-facing stock label: "In Stock" or "Sold".
+  String get stockStatusLabel => isSold ? 'Sold' : 'In Stock';
+
+  String get coverImageUrl {
+    if (imageUrl.trim().isNotEmpty) return imageUrl;
+    if (exteriorImages.isNotEmpty) return exteriorImages.first;
+    if (interiorImages.isNotEmpty) return interiorImages.first;
+    return '';
+  }
+
+  List<String> get allExteriorImages {
+    final urls = <String>[];
+    void add(String url) {
+      final trimmed = url.trim();
+      if (trimmed.isNotEmpty && !urls.contains(trimmed)) urls.add(trimmed);
+    }
+
+    add(imageUrl);
+    for (final url in exteriorImages) {
+      add(url);
+    }
+    return urls;
+  }
+
+  /// All exterior photos — cover image + extra exterior shots (deduped).
+  List<String> get galleryExteriorImages => allExteriorImages;
+
+  List<String> get allInteriorImages =>
+      interiorImages.where((url) => url.trim().isNotEmpty).toList();
+
+  Map<String, dynamic> toJson() => {
+        '_id': id,
+        'title': title,
+        'vehicleNumber': vehicleNumber,
+        'brand': brand,
+        'model': model,
+        'fuelType': fuelType,
+        'ownership': ownership,
+        'availability': availability,
+        'year': year,
+        'buyPrice': buyPrice,
+        'sellPrice': sellPrice,
+        'buyDate': buyDate.toUtc().toIso8601String(),
+        if (saleDate != null) 'saleDate': saleDate!.toUtc().toIso8601String(),
+        'description': description,
+        'imageUrl': imageUrl,
+        'exteriorImages': exteriorImages,
+        'interiorImages': interiorImages,
+      };
 }
 
 class CarServiceException implements Exception {

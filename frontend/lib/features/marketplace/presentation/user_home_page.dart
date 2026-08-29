@@ -1,15 +1,21 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/assets.dart';
 import '../../../core/format/inr.dart';
 import '../../../core/theme/market_colors.dart';
 import '../../../core/theme/market_theme.dart';
+import '../../../core/ui/car_network_image.dart';
+import '../../../core/ui/frost_card.dart';
+import '../../../core/ui/stock_status_badge.dart';
 import '../../../core/ui/sold_overlay.dart';
 import '../../../core/ui/wish_button.dart';
 import '../../../services/car_alert_service.dart';
 import '../../../services/car_catalog_service.dart';
 import '../../../services/car_service.dart';
 import '../../../services/wishlist_service.dart';
+import 'new_car_arrival_ticker.dart';
 import 'notifications_page.dart';
 import 'user_car_details_page.dart';
 
@@ -59,6 +65,8 @@ class _UserHomePageState extends State<UserHomePage> {
   @override
   void initState() {
     super.initState();
+    _cars = CarCatalogService.instance.cars;
+    _loading = !CarCatalogService.instance.hasCars;
     CarAlertService.instance.addListener(_onAlerts);
     WishlistService.instance.addListener(_onAlerts);
     CarCatalogService.instance.addListener(_onCatalog);
@@ -87,9 +95,15 @@ class _UserHomePageState extends State<UserHomePage> {
   }
 
   Future<void> _pullCatalog() async {
-    setState(() => _loading = true);
+    final catalog = CarCatalogService.instance;
+    if (!catalog.hasCars) {
+      setState(() => _loading = true);
+    } else {
+      _cars = catalog.cars;
+      _loading = false;
+    }
     try {
-      await CarCatalogService.instance.load();
+      await catalog.load();
     } catch (_) {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -205,19 +219,18 @@ class _UserHomePageState extends State<UserHomePage> {
     return RefreshIndicator(
       color: MarketColors.primary,
       displacement: 48,
-      notificationPredicate: (n) => n.depth <= 1,
       onRefresh: _load,
-      child: NestedScrollView(
-        physics: const BouncingScrollPhysics(
-          parent: AlwaysScrollableScrollPhysics(),
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
         ),
-        headerSliverBuilder: (context, _) => [
+        slivers: [
           SliverToBoxAdapter(
             child: _TopBlock(
               topPad: topPad,
               hello: _hello,
               carCount: _cars.length,
-              spotlight: _cars.where((c) => !c.isSold).take(5).toList(),
+              spotlight: _latest.where((c) => !c.isSold).take(5).toList(),
               onMenu: widget.onOpenMenu,
               onExplore: widget.onExplore,
               onNotifications: _openNotifications,
@@ -238,65 +251,65 @@ class _UserHomePageState extends State<UserHomePage> {
               alerts: CarAlertService.instance.unread,
             ),
           ),
+          const SliverToBoxAdapter(child: NewCarArrivalTicker()),
           SliverToBoxAdapter(
-            child: SizedBox(
+            child: _HomeHorizontalStrip(
               height: 54,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                itemCount: _budgets.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 8),
-                itemBuilder: (context, i) {
-                  final on = _budget == i;
-                  return GestureDetector(
-                    onTap: () => setState(() => _budget = i),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: on ? MarketColors.primary : Colors.white,
-                        borderRadius: BorderRadius.circular(99),
-                        border: Border.all(
-                          color: on
-                              ? MarketColors.primary
-                              : const Color(0xFFE7EEF8),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+              spacing: 8,
+              scrollSpeed: 0.55,
+              children: [
+                for (var i = 0; i < _budgets.length; i++)
+                  Builder(
+                    builder: (context) {
+                      final on = _budget == i;
+                      return GestureDetector(
+                        onTap: () => setState(() => _budget = i),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: on ? MarketColors.primary : Colors.white,
+                            borderRadius: BorderRadius.circular(99),
+                            border: Border.all(
+                              color: on
+                                  ? MarketColors.primary
+                                  : const Color(0xFFE7EEF8),
+                            ),
+                          ),
+                          child: Text(
+                            _budgets[i],
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: on ? Colors.white : MarketColors.text,
+                            ),
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        _budgets[i],
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: on ? Colors.white : MarketColors.text,
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
+                      );
+                    },
+                  ),
+              ],
             ),
           ),
           SliverToBoxAdapter(
-            child: SizedBox(
+            child: _HomeHorizontalStrip(
               height: 108,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                itemCount: _categories.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 12),
-                itemBuilder: (context, i) {
-                  final (label, icon) = _categories[i];
-                  return _CategoryChip(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              spacing: 12,
+              scrollSpeed: 0.45,
+              children: [
+                for (final (label, icon) in _categories)
+                  _CategoryChip(
                     label: label,
                     icon: icon,
                     selected: _category == label,
                     onTap: () => setState(() => _category = label),
-                  );
-                },
-              ),
+                  ),
+              ],
             ),
           ),
           SliverToBoxAdapter(
@@ -305,51 +318,44 @@ class _UserHomePageState extends State<UserHomePage> {
               action: _loading ? null : '${featured.length} listed',
             ),
           ),
-        ],
-        body: CustomScrollView(
-          physics: const BouncingScrollPhysics(
-            parent: AlwaysScrollableScrollPhysics(),
-          ),
-          slivers: [
-            if (_loading)
-              const SliverPadding(
-                padding: EdgeInsets.fromLTRB(16, 0, 16, 0),
-                sliver: _CarListSkeleton(),
-              )
-            else if (featured.isEmpty)
-              const SliverToBoxAdapter(child: _EmptyFilter())
-            else
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, i) {
-                      final car = featured[i];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _CarListCard(
+          if (_loading)
+            const SliverPadding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 0),
+              sliver: _CarListSkeleton(),
+            )
+          else if (featured.isEmpty)
+            const SliverToBoxAdapter(child: _EmptyFilter())
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, i) {
+                    final car = featured[i];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _CarListCard(
+                        car: car,
+                        isNew: freshIds.contains(car.id),
+                        onTap: () => UserCarDetailsPage.open(
+                          context,
                           car: car,
-                          isNew: freshIds.contains(car.id),
-                          onTap: () => UserCarDetailsPage.open(
-                            context,
-                            car: car,
-                          ),
                         ),
-                      );
-                    },
-                    childCount: featured.length,
-                  ),
+                      ),
+                    );
+                  },
+                  childCount: featured.length,
                 ),
               ),
-            const SliverToBoxAdapter(child: _TrustStrip()),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 108),
-                child: _SellBanner(onSell: widget.onSell),
-              ),
             ),
-          ],
-        ),
+          const SliverToBoxAdapter(child: _TrustStrip()),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 108),
+              child: _SellBanner(onSell: widget.onSell),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -579,9 +585,38 @@ class _HeroBanner extends StatefulWidget {
 class _HeroBannerState extends State<_HeroBanner> {
   final _page = PageController();
   int _i = 0;
+  Timer? _autoSlide;
+
+  @override
+  void initState() {
+    super.initState();
+    _autoSlide = Timer.periodic(const Duration(seconds: 4), (_) => _nextSlide());
+  }
+
+  @override
+  void didUpdateWidget(covariant _HeroBanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.cars.length != widget.cars.length) {
+      _i = 0;
+      if (_page.hasClients) {
+        _page.jumpToPage(0);
+      }
+    }
+  }
+
+  void _nextSlide() {
+    if (!mounted || widget.cars.length < 2 || !_page.hasClients) return;
+    final next = (_i + 1) % widget.cars.length;
+    _page.animateToPage(
+      next,
+      duration: const Duration(milliseconds: 520),
+      curve: Curves.easeInOutCubic,
+    );
+  }
 
   @override
   void dispose() {
+    _autoSlide?.cancel();
     _page.dispose();
     super.dispose();
   }
@@ -589,15 +624,14 @@ class _HeroBannerState extends State<_HeroBanner> {
   @override
   Widget build(BuildContext context) {
     final cars = widget.cars;
-    return Container(
-      height: 168,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: MarketTheme.cardShadow,
+    return FrostCard(
+      borderRadius: 24,
+      opacity: 0.92,
+      blur: 16,
+      child: SizedBox(
+        height: 188,
+        child: cars.isEmpty ? _staticHero() : _carousel(cars),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: cars.isEmpty ? _staticHero() : _carousel(cars),
     );
   }
 
@@ -646,17 +680,13 @@ class _HeroBannerState extends State<_HeroBanner> {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(16),
                       child: SizedBox(
-                        width: 128,
-                        height: 128,
-                        child: car.imageUrl.isNotEmpty
-                            ? Image.network(
-                                car.imageUrl,
+                        width: 136,
+                        height: 136,
+                        child: car.coverImageUrl.isNotEmpty
+                            ? CarNetworkImage(
+                                url: car.coverImageUrl,
                                 fit: BoxFit.cover,
-                                cacheWidth: 256,
-                                errorBuilder: (_, _, _) => Image.asset(
-                                  AppAssets.splashCars[1],
-                                  fit: BoxFit.contain,
-                                ),
+                                cacheWidth: 280,
                               )
                             : Image.asset(
                                 AppAssets.splashCars[1],
@@ -788,44 +818,44 @@ class _SearchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 54,
+    return FrostCard(
+      borderRadius: 18,
+      opacity: 0.9,
+      blur: 12,
       padding: const EdgeInsets.fromLTRB(14, 0, 6, 0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: MarketTheme.cardShadow,
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.search_rounded, color: MarketColors.primary),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              onChanged: onChanged,
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                hintText: 'Search brand, model or city...',
-                hintStyle: TextStyle(color: Color(0xFF9AA8BA), fontSize: 13),
-                isDense: true,
+      child: SizedBox(
+        height: 54,
+        child: Row(
+          children: [
+            const Icon(Icons.search_rounded, color: MarketColors.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: controller,
+                onChanged: onChanged,
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  hintText: 'Search brand, model or city...',
+                  hintStyle: TextStyle(color: Color(0xFF9AA8BA), fontSize: 13),
+                  isDense: true,
+                ),
               ),
             ),
-          ),
-          Material(
-            color: MarketColors.primary,
-            borderRadius: BorderRadius.circular(12),
-            child: InkWell(
-              onTap: onFilter,
+            Material(
+              color: MarketColors.primary,
               borderRadius: BorderRadius.circular(12),
-              child: const SizedBox(
-                width: 40,
-                height: 40,
-                child: Icon(Icons.tune_rounded, color: Colors.white, size: 18),
+              child: InkWell(
+                onTap: onFilter,
+                borderRadius: BorderRadius.circular(12),
+                child: const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Icon(Icons.tune_rounded, color: Colors.white, size: 18),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -863,7 +893,7 @@ class _QuickActions extends StatelessWidget {
           const SizedBox(width: 10),
           _QuickTile(
             icon: Icons.sell_rounded,
-            label: 'Sell',
+            label: 'Sell car',
             color: const Color(0xFF0F9D58),
             onTap: onSell,
           ),
@@ -884,6 +914,106 @@ class _QuickActions extends StatelessWidget {
             onTap: onAlerts,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Horizontal row with optional automatic scroll (loops when content overflows).
+class _HomeHorizontalStrip extends StatefulWidget {
+  const _HomeHorizontalStrip({
+    required this.height,
+    required this.padding,
+    required this.spacing,
+    required this.children,
+    this.scrollSpeed = 0.5,
+  });
+
+  final double height;
+  final EdgeInsets padding;
+  final double spacing;
+  final List<Widget> children;
+  final double scrollSpeed;
+
+  @override
+  State<_HomeHorizontalStrip> createState() => _HomeHorizontalStripState();
+}
+
+class _HomeHorizontalStripState extends State<_HomeHorizontalStrip> {
+  final _scroll = ScrollController();
+  Timer? _timer;
+  bool _userDragging = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _armAutoScroll());
+  }
+
+  @override
+  void didUpdateWidget(covariant _HomeHorizontalStrip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.children.length != widget.children.length) {
+      _timer?.cancel();
+      WidgetsBinding.instance.addPostFrameCallback((_) => _armAutoScroll());
+    }
+  }
+
+  void _armAutoScroll() {
+    _timer?.cancel();
+    if (!mounted) return;
+    if (!_scroll.hasClients) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _armAutoScroll());
+      return;
+    }
+    if (_scroll.position.maxScrollExtent <= 6) return;
+
+    _timer = Timer.periodic(const Duration(milliseconds: 30), (_) {
+      if (!mounted || _userDragging || !_scroll.hasClients) return;
+      final max = _scroll.position.maxScrollExtent;
+      if (max <= 0) return;
+      final next = _scroll.offset + widget.scrollSpeed;
+      if (next >= max) {
+        _scroll.jumpTo(0);
+      } else {
+        _scroll.jumpTo(next);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.children.isEmpty) return const SizedBox.shrink();
+    return SizedBox(
+      height: widget.height,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (notification is ScrollStartNotification &&
+              notification.dragDetails != null) {
+            _userDragging = true;
+          } else if (notification is ScrollEndNotification) {
+            _userDragging = false;
+          }
+          return false;
+        },
+        child: ListView.separated(
+          controller: _scroll,
+          scrollDirection: Axis.horizontal,
+          primary: false,
+          physics: const BouncingScrollPhysics(),
+          padding: widget.padding,
+          clipBehavior: Clip.none,
+          itemCount: widget.children.length,
+          separatorBuilder: (_, _) => SizedBox(width: widget.spacing),
+          itemBuilder: (context, index) => widget.children[index],
+        ),
       ),
     );
   }
@@ -914,7 +1044,7 @@ class _QuickTile extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(18),
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
+            padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: const Color(0xFFE7EEF8)),
@@ -1063,55 +1193,55 @@ class _CarListCard extends StatelessWidget {
           !title.toLowerCase().contains(car.model.toLowerCase()))
         car.model,
     ].join(' ');
-    final meta = [
-      if (car.year > 0) '${car.year}',
-      if (car.fuelType.trim().isNotEmpty) car.fuelType,
-      owner,
-    ].join('  ·  ');
 
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: MarketTheme.cardShadow,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x220056D2),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+          BoxShadow(
+            color: Color(0x08000000),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
         border: Border.all(color: const Color(0xFFE7EEF8)),
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
           child: SizedBox(
-            height: 118,
+            height: 140,
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SizedBox(
-                  width: 118,
-                  height: 118,
+                  width: 132,
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      car.imageUrl.isNotEmpty
-                          ? Image.network(
-                              car.imageUrl,
-                              fit: BoxFit.cover,
-                              cacheWidth: 236,
-                              errorBuilder: (_, _, _) => Image.asset(
-                                AppAssets.sampleCarListing,
-                                fit: BoxFit.cover,
-                              ),
-                            )
-                          : Image.asset(
-                              AppAssets.sampleCarListing,
-                              fit: BoxFit.cover,
-                            ),
+                      ColoredBox(
+                        color: const Color(0xFFEEF3FB),
+                        child: CarNetworkImage(
+                          url: car.coverImageUrl,
+                          fit: BoxFit.contain,
+                          cacheWidth: 280,
+                        ),
+                      ),
                       if (car.isSold)
-                        const SoldOverlay()
+                        const SoldOverlay(compact: true)
                       else
                         Positioned(
-                          left: 6,
-                          top: 6,
+                          left: 8,
+                          top: 8,
                           child: isNew
                               ? const _TagChip(label: 'New', filled: true)
                               : const _TagChip(
@@ -1124,7 +1254,7 @@ class _CarListCard extends StatelessWidget {
                 ),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+                    padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -1133,10 +1263,10 @@ class _CarListCard extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 title,
-                                maxLines: 1,
+                                maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w900,
                                   fontSize: 15,
                                   height: 1.2,
                                   letterSpacing: -0.2,
@@ -1148,55 +1278,65 @@ class _CarListCard extends StatelessWidget {
                           ],
                         ),
                         if (subtitle.isNotEmpty) ...[
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 4),
                           Text(
                             subtitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontSize: 11.5,
-                              color: MarketColors.muted,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                              color: MarketColors.primary,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ],
                         const SizedBox(height: 4),
-                        Text(
-                          meta,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: MarketColors.muted,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: [
+                            if (car.year > 0) _MetaChip(text: '${car.year}'),
+                            if (car.fuelType.trim().isNotEmpty)
+                              _MetaChip(text: car.fuelType),
+                            _MetaChip(text: owner),
+                          ],
                         ),
                         const Spacer(),
                         Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Expanded(
-                              child: Text(
-                                formatInr(car.sellPrice),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 16,
-                                  letterSpacing: -0.4,
-                                  color: car.isSold
-                                      ? MarketColors.muted
-                                      : MarketColors.primary,
-                                ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Sell price',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: MarketColors.muted,
+                                    ),
+                                  ),
+                                  Text(
+                                    formatInr(car.sellPrice),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 17,
+                                      letterSpacing: -0.4,
+                                      color: car.isSold
+                                          ? MarketColors.muted
+                                          : MarketColors.primary,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                             if (car.isSold)
-                              const SoldPill()
+                              const StockStatusBadge(isSold: true, compact: true)
                             else
-                              const Icon(
-                                Icons.chevron_right_rounded,
-                                color: MarketColors.primary,
-                                size: 22,
-                              ),
+                              const StockStatusBadge(isSold: false, compact: true),
                           ],
                         ),
                       ],
@@ -1206,6 +1346,31 @@ class _CarListCard extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MetaChip extends StatelessWidget {
+  const _MetaChip({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: MarketColors.chipBg,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: MarketColors.text,
         ),
       ),
     );
@@ -1256,7 +1421,7 @@ class _CarListSkeleton extends StatelessWidget {
     return SliverList(
       delegate: SliverChildBuilderDelegate(
         (context, i) => Container(
-          height: 118,
+          height: 140,
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
             color: Colors.white,

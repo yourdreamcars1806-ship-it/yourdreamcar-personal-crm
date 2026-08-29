@@ -11,6 +11,14 @@ const ownershipTypes = [
 ];
 const availabilityTypes = ['stock', 'outstock'];
 
+const carImageSchema = new mongoose.Schema(
+  {
+    url: { type: String, required: true, trim: true },
+    publicId: { type: String, default: '', trim: true },
+  },
+  { _id: false },
+);
+
 const carSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
@@ -28,8 +36,10 @@ const carSchema = new mongoose.Schema(
     description: { type: String, default: '', trim: true },
     imageUrl: { type: String, required: true },
     imagePublicId: { type: String, required: true },
+    exteriorImages: { type: [carImageSchema], default: [] },
+    interiorImages: { type: [carImageSchema], default: [] },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 carSchema.index({ availability: 1, createdAt: -1 });

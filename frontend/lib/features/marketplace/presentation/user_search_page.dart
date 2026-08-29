@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/constants/assets.dart';
 import '../../../core/format/inr.dart';
 import '../../../core/theme/market_colors.dart';
 import '../../../core/theme/market_theme.dart';
+import '../../../core/ui/car_network_image.dart';
+import '../../../core/ui/stock_status_badge.dart';
 import '../../../core/ui/sold_overlay.dart';
 import '../../../core/ui/wish_button.dart';
 import '../../../services/car_catalog_service.dart';
@@ -26,7 +27,17 @@ class _UserSearchPageState extends State<UserSearchPage> {
   void initState() {
     super.initState();
     CarCatalogService.instance.addListener(_sync);
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
     _sync();
+    if (CarCatalogService.instance.hasCars) return;
+    try {
+      await CarCatalogService.instance.load();
+    } catch (_) {
+      if (mounted) _sync();
+    }
   }
 
   @override
@@ -124,16 +135,11 @@ class _UserSearchPageState extends State<UserSearchPage> {
                                   child: Stack(
                                     fit: StackFit.expand,
                                     children: [
-                                      car.imageUrl.isEmpty
-                                          ? Image.asset(
-                                              AppAssets.sampleCarListing,
-                                              fit: BoxFit.cover,
-                                            )
-                                          : Image.network(
-                                              car.imageUrl,
-                                              fit: BoxFit.cover,
-                                              cacheWidth: 184,
-                                            ),
+                                      CarNetworkImage(
+                                        url: car.coverImageUrl,
+                                        fit: BoxFit.cover,
+                                        cacheWidth: 184,
+                                      ),
                                       if (car.isSold)
                                         const SoldOverlay(compact: true),
                                     ],
@@ -180,7 +186,10 @@ class _UserSearchPageState extends State<UserSearchPage> {
                                             ),
                                           ),
                                         ),
-                                        if (car.isSold) const SoldPill(),
+                                        StockStatusBadge(
+                                          isSold: car.isSold,
+                                          compact: true,
+                                        ),
                                       ],
                                     ),
                                   ],

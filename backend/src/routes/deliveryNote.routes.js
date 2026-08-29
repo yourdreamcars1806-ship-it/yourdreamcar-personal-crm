@@ -15,9 +15,9 @@ router.use(requireAuth);
 
 router.get('/admin', requireAdmin, listAll);
 router.get('/mine', listMine);
-router.get('/:id/pdf', requireAdmin, downloadPdf);
+router.get('/:id/pdf', downloadPdf);
 router.get('/:id', getOne);
-router.post('/', createNote);
+router.post('/', requireAdmin, createNote);
 router.put('/:id', requireAdmin, updateNote);
 router.delete('/:id', requireAdmin, deleteNote);
 

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,6 +8,7 @@ import '../../../core/theme/brand_colors.dart';
 import '../../../core/ui/app_toast.dart';
 import '../../../services/expense_service.dart';
 import '../../../services/car_service.dart';
+import '../../../services/car_catalog_service.dart';
 import '../../expenses/domain/expense_entry.dart';
 
 String _inventoryCarSubtitle(CarRecord car) {
@@ -48,6 +50,10 @@ class InventoryPageState extends State<InventoryPage> {
   final _descriptionController = TextEditingController();
 
   File? _picked;
+  List<File> _exteriorPicked = [];
+  List<File> _interiorPicked = [];
+  List<String> _existingExterior = [];
+  List<String> _existingInterior = [];
   String _fuelType = 'PETROL';
   String _ownership = '1st owner';
   String _availability = 'stock';
@@ -124,6 +130,28 @@ class InventoryPageState extends State<InventoryPage> {
     });
   }
 
+  Future<void> _pickExterior() async {
+    final xs = await _picker.pickMultiImage(
+      maxWidth: 2048,
+      imageQuality: 85,
+    );
+    if (xs.isEmpty) return;
+    setState(() {
+      _exteriorPicked = [..._exteriorPicked, ...xs.map((x) => File(x.path))];
+    });
+  }
+
+  Future<void> _pickInterior() async {
+    final xs = await _picker.pickMultiImage(
+      maxWidth: 2048,
+      imageQuality: 85,
+    );
+    if (xs.isEmpty) return;
+    setState(() {
+      _interiorPicked = [..._interiorPicked, ...xs.map((x) => File(x.path))];
+    });
+  }
+
   Future<void> _pickDate({required bool saleDate}) async {
     final initial = saleDate ? (_saleDate ?? DateTime.now()) : _buyDate;
     final picked = await showDatePicker(
@@ -186,14 +214,25 @@ class InventoryPageState extends State<InventoryPage> {
     });
     try {
       if (_editingCar == null) {
-        await _carsApi.createCar(fields: _buildFields(), imageFile: _picked!);
+        await _carsApi.createCar(
+          fields: _buildFields(),
+          imageFile: _picked!,
+          exteriorImages: _exteriorPicked,
+          interiorImages: _interiorPicked,
+        );
       } else {
         await _carsApi.updateCar(
           id: _editingCar!.id,
           fields: _buildFields(),
           imageFile: _picked,
+          exteriorImages: _exteriorPicked,
+          interiorImages: _interiorPicked,
+          keepExteriorUrls: _existingExterior,
+          keepInteriorUrls: _existingInterior,
         );
       }
+      CarCatalogService.instance.invalidate();
+      unawaited(CarCatalogService.instance.load(force: true));
       if (!mounted) return;
       _clearForm();
       await _loadCars();
@@ -222,6 +261,10 @@ class InventoryPageState extends State<InventoryPage> {
   void _clearForm() {
     _editingCar = null;
     _picked = null;
+    _exteriorPicked = [];
+    _interiorPicked = [];
+    _existingExterior = [];
+    _existingInterior = [];
     _titleController.clear();
     _vehicleNumberController.clear();
     _brandController.clear();
@@ -241,6 +284,10 @@ class InventoryPageState extends State<InventoryPage> {
     setState(() {
       _editingCar = car;
       _picked = null;
+      _exteriorPicked = [];
+      _interiorPicked = [];
+      _existingExterior = [...car.exteriorImages];
+      _existingInterior = [...car.interiorImages];
       _titleController.text = car.title;
       _vehicleNumberController.text = car.vehicleNumber;
       _brandController.text = car.brand;
@@ -385,6 +432,93 @@ class InventoryPageState extends State<InventoryPage> {
     );
   }
 
+  Widget _photoPreviewStrip({
+    required double maxW,
+    required List<String> existingUrls,
+    required List<File> pickedFiles,
+    required ValueChanged<String> onRemoveExisting,
+    required ValueChanged<int> onRemovePicked,
+  }) {
+    if (existingUrls.isEmpty && pickedFiles.isEmpty) {
+      return SizedBox(width: maxW);
+    }
+    return SizedBox(
+      width: maxW,
+      height: 96,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          for (final url in existingUrls)
+            Padding(
+              padding: const EdgeInsets.only(right: 10, bottom: 8, top: 4),
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      url,
+                      width: 96,
+                      height: 96,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: Material(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () => onRemoveExisting(url),
+                        child: const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Icon(Icons.close_rounded, color: Colors.white, size: 14),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          for (var i = 0; i < pickedFiles.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(right: 10, bottom: 8, top: 4),
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.file(
+                      pickedFiles[i],
+                      width: 96,
+                      height: 96,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: Material(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () => onRemovePicked(i),
+                        child: const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Icon(Icons.close_rounded, color: Colors.white, size: 14),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _formSectionHeader(
     double maxWidth,
     String title,
@@ -493,9 +627,9 @@ class InventoryPageState extends State<InventoryPage> {
       case 'Availability':
         switch (raw) {
           case 'stock':
-            return 'In stock';
+            return 'In Stock';
           case 'outstock':
-            return 'Out of stock';
+            return 'Sold';
           default:
             return raw;
         }
@@ -905,7 +1039,7 @@ class InventoryPageState extends State<InventoryPage> {
                     onPressed: _busy ? null : _pick,
                     icon: const Icon(Icons.add_photo_alternate_rounded),
                     label: Text(
-                      _picked == null ? 'Choose listing photo' : 'Replace photo',
+                      _picked == null ? 'Choose cover photo' : 'Replace cover photo',
                       style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ),
@@ -935,7 +1069,7 @@ class InventoryPageState extends State<InventoryPage> {
                                 fit: BoxFit.cover,
                               )
                             : Image.network(
-                                _editingCar!.imageUrl,
+                                _editingCar!.coverImageUrl,
                                 height: 200,
                                 width: double.infinity,
                                 fit: BoxFit.cover,
@@ -943,6 +1077,64 @@ class InventoryPageState extends State<InventoryPage> {
                       ),
                     ),
                   ),
+                _formSectionHeader(maxW, 'Exterior photos', Icons.directions_car_filled_rounded),
+                SizedBox(
+                  width: maxW,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      elevation: 0,
+                      backgroundColor: const Color(0x221D63ED),
+                      foregroundColor: _formAccent,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: const BorderSide(color: Color(0x443E9AFE)),
+                      ),
+                    ),
+                    onPressed: _busy ? null : _pickExterior,
+                    icon: const Icon(Icons.collections_rounded),
+                    label: const Text(
+                      'Add exterior photos (multiple)',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+                _photoPreviewStrip(
+                  maxW: maxW,
+                  existingUrls: _existingExterior,
+                  pickedFiles: _exteriorPicked,
+                  onRemoveExisting: (url) => setState(() => _existingExterior.remove(url)),
+                  onRemovePicked: (index) => setState(() => _exteriorPicked.removeAt(index)),
+                ),
+                _formSectionHeader(maxW, 'Interior photos', Icons.weekend_rounded),
+                SizedBox(
+                  width: maxW,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      elevation: 0,
+                      backgroundColor: const Color(0x221D63ED),
+                      foregroundColor: _formAccent,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: const BorderSide(color: Color(0x443E9AFE)),
+                      ),
+                    ),
+                    onPressed: _busy ? null : _pickInterior,
+                    icon: const Icon(Icons.photo_library_rounded),
+                    label: const Text(
+                      'Add interior photos (multiple)',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+                _photoPreviewStrip(
+                  maxW: maxW,
+                  existingUrls: _existingInterior,
+                  pickedFiles: _interiorPicked,
+                  onRemoveExisting: (url) => setState(() => _existingInterior.remove(url)),
+                  onRemovePicked: (index) => setState(() => _interiorPicked.removeAt(index)),
+                ),
                 SizedBox(
                   width: maxW,
                   child: FilledButton.icon(
@@ -1422,7 +1614,7 @@ class _InventoryDetailCard extends StatelessWidget {
                                 ),
                               ),
                               child: Text(
-                                inStock ? 'In stock' : 'Out stock',
+                                inStock ? 'In Stock' : 'Sold',
                                 style: TextStyle(
                                   color: inStock
                                       ? const Color(0xFF0B7A3E)
@@ -1491,7 +1683,7 @@ class _InventoryDetailCard extends StatelessWidget {
                     _DetailRow(label: 'Ownership', value: car.ownership),
                     _DetailRow(
                       label: 'Availability',
-                      value: inStock ? 'In stock' : 'Out of stock',
+                      value: inStock ? 'In Stock' : 'Sold',
                     ),
                     _DetailRow(label: 'Buy date', value: _fmtDate(car.buyDate)),
                     _DetailRow(
@@ -2086,7 +2278,7 @@ class _InventoryCarDetailsPageState extends State<InventoryCarDetailsPage> {
                         ),
                       ),
                       child: Text(
-                        inStock ? 'In stock' : 'Out of stock',
+                        inStock ? 'In Stock' : 'Sold',
                         style: TextStyle(
                           color: inStock
                               ? const Color(0xFF0B7A3E)

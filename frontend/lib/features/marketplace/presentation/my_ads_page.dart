@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../core/constants/assets.dart';
 import '../../../core/format/inr.dart';
+import '../../../core/ui/app_toast.dart';
+import '../../../core/ui/bid_amount_stepper.dart';
+import '../../../core/ui/frost_card.dart';
 import '../../../core/theme/market_colors.dart';
 import '../../../core/theme/market_theme.dart';
 import '../../../services/auth_service.dart';
@@ -14,10 +17,12 @@ class MyAdsPage extends StatefulWidget {
     super.key,
     this.onAddCar,
     this.onBrowseCars,
+    this.initialTab = 0,
   });
 
   final Future<void> Function()? onAddCar;
   final VoidCallback? onBrowseCars;
+  final int initialTab;
 
   @override
   State<MyAdsPage> createState() => _MyAdsPageState();
@@ -36,6 +41,7 @@ class _MyAdsPageState extends State<MyAdsPage> {
   @override
   void initState() {
     super.initState();
+    _tab = widget.initialTab.clamp(0, 1);
     _load();
   }
 
@@ -66,6 +72,22 @@ class _MyAdsPageState extends State<MyAdsPage> {
     }
   }
 
+  Future<void> _updateBidAmount(BidRecord bid, double amount) async {
+    try {
+      final result = await _bidApi.updateMyBid(id: bid.id, amount: amount);
+      if (!mounted) return;
+      if (result.instantWin) {
+        AppToast.success(context, 'Price matched — you won this car!');
+      } else {
+        AppToast.success(context, 'Bid updated');
+      }
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      AppToast.error(context, e.toString());
+    }
+  }
+
   Future<void> _addCar() async {
     await widget.onAddCar?.call();
     if (mounted) _load();
@@ -86,32 +108,6 @@ class _MyAdsPageState extends State<MyAdsPage> {
       data: MarketTheme.data(),
       child: Scaffold(
         backgroundColor: MarketColors.bg,
-        appBar: AppBar(
-          backgroundColor: MarketColors.primary,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          title: const Text(
-            'Dashboard',
-            style: TextStyle(fontWeight: FontWeight.w800),
-          ),
-          actions: [
-            if (widget.onAddCar != null)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: TextButton.icon(
-                  onPressed: _addCar,
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.white,
-                  ),
-                  icon: const Icon(Icons.add_rounded, size: 20),
-                  label: const Text(
-                    'Add car',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                ),
-              ),
-          ],
-        ),
         body: RefreshIndicator(
           color: MarketColors.primary,
           onRefresh: _load,
@@ -120,10 +116,35 @@ class _MyAdsPageState extends State<MyAdsPage> {
               parent: AlwaysScrollableScrollPhysics(),
             ),
             slivers: [
-              SliverToBoxAdapter(child: _Header(hello: _hello)),
+              SliverToBoxAdapter(
+                child: DashboardHeroHeader(
+                  badge: 'MY ACCOUNT',
+                  title: _hello,
+                  subtitle: 'Track bids, adjust offers, and manage your car requests',
+                  stats: [
+                    ('Bids', '${_bids.length}'),
+                    ('Pending', '$_pendingAds'),
+                    ('Live', '$_liveAds'),
+                  ],
+                  trailing: widget.onAddCar != null
+                      ? Material(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(12),
+                          child: InkWell(
+                            onTap: _addCar,
+                            borderRadius: BorderRadius.circular(12),
+                            child: const Padding(
+                              padding: EdgeInsets.all(10),
+                              child: Icon(Icons.add_rounded, color: Colors.white),
+                            ),
+                          ),
+                        )
+                      : null,
+                ),
+              ),
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
                   child: Row(
                     children: [
                       Expanded(
@@ -217,7 +238,14 @@ class _MyAdsPageState extends State<MyAdsPage> {
                     itemCount: _tab == 0 ? _bids.length : _ads.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 12),
                     itemBuilder: (context, i) {
-                      if (_tab == 0) return _BidCard(item: _bids[i]);
+                      if (_tab == 0) {
+                        return _BidCard(
+                          item: _bids[i],
+                          onUpdated: _load,
+                          onAmountChanged: (bid, amount) =>
+                              _updateBidAmount(bid, amount),
+                        );
+                      }
                       return _AdCard(item: _ads[i]);
                     },
                   ),
@@ -225,40 +253,6 @@ class _MyAdsPageState extends State<MyAdsPage> {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({required this.hello});
-
-  final String hello;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            hello,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w900,
-              color: MarketColors.text,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Track your bids and car requests',
-            style: TextStyle(
-              color: MarketColors.muted,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -283,19 +277,36 @@ class _StatCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: const Color(0xFFE7EEF8)),
         boxShadow: MarketTheme.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: MarketColors.primary),
-          const SizedBox(height: 10),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      MarketColors.primary.withValues(alpha: 0.15),
+                      MarketColors.primaryLight.withValues(alpha: 0.1),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, size: 18, color: MarketColors.primary),
+              ),
+              const Spacer(),
+            ],
+          ),
+          const SizedBox(height: 12),
           Text(
             value,
             style: const TextStyle(
-              fontSize: 22,
+              fontSize: 24,
               fontWeight: FontWeight.w900,
               color: MarketColors.text,
             ),
@@ -356,7 +367,7 @@ class _Segment extends StatelessWidget {
             onTap: () => onChanged(0),
           ),
           _SegBtn(
-            label: 'My cars',
+            label: 'Car requests',
             count: cars,
             selected: tab == 1,
             onTap: () => onChanged(1),
@@ -489,13 +500,51 @@ class _Message extends StatelessWidget {
   }
 }
 
-class _BidCard extends StatelessWidget {
-  const _BidCard({required this.item});
+class _BidCard extends StatefulWidget {
+  const _BidCard({
+    required this.item,
+    required this.onUpdated,
+    required this.onAmountChanged,
+  });
 
   final BidRecord item;
+  final Future<void> Function() onUpdated;
+  final Future<void> Function(BidRecord bid, double amount) onAmountChanged;
+
+  @override
+  State<_BidCard> createState() => _BidCardState();
+}
+
+class _BidCardState extends State<_BidCard> {
+  late double _amount;
+  bool _expanded = false;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _amount = widget.item.amount;
+  }
+
+  @override
+  void didUpdateWidget(_BidCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item.id != widget.item.id ||
+        oldWidget.item.amount != widget.item.amount) {
+      _amount = widget.item.amount;
+    }
+  }
+
+  Future<void> _saveAmount() async {
+    if (_saving || _amount.round() == widget.item.amount.round()) return;
+    setState(() => _saving = true);
+    await widget.onAmountChanged(widget.item, _amount);
+    if (mounted) setState(() => _saving = false);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final item = widget.item;
     final status = _statusStyle(item.status);
     final diff = item.amount - item.askPrice;
     final vsAsk = item.askPrice <= 0
@@ -505,6 +554,7 @@ class _BidCard extends StatelessWidget {
             : diff < 0
                 ? '${formatInr(-diff)} below'
                 : '${formatInr(diff)} above';
+    final canEdit = item.status == 'pending';
 
     return Material(
       color: Colors.white,
@@ -520,53 +570,129 @@ class _BidCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(18),
           ),
           padding: const EdgeInsets.all(12),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _Thumb(url: item.carImageUrl, fallback: Icons.gavel_rounded),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.carTitle.isEmpty ? 'Car bid' : item.carTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w800,
-                        color: MarketColors.text,
-                      ),
+              Row(
+                children: [
+                  _Thumb(url: item.carImageUrl, fallback: Icons.gavel_rounded),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.carTitle.isEmpty ? 'Car bid' : item.carTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: MarketColors.text,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          formatInr(item.amount),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: MarketColors.primary,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          [
+                            'Sell ${formatInr(item.askPrice)}',
+                            if (vsAsk.isNotEmpty) vsAsk,
+                            if (_ago(item.createdAt).isNotEmpty) _ago(item.createdAt),
+                          ].join('  ·  '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: MarketColors.muted,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _StatusChip(label: status.$1, color: status.$2),
+                      ],
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      formatInr(item.amount),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: MarketColors.primary,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      [
-                        'Sell ${formatInr(item.askPrice)}',
-                        if (vsAsk.isNotEmpty) vsAsk,
-                        if (_ago(item.createdAt).isNotEmpty) _ago(item.createdAt),
-                      ].join('  ·  '),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: MarketColors.muted,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _StatusChip(label: status.$1, color: status.$2),
-                  ],
-                ),
+                  ),
+                  const Icon(Icons.chevron_right_rounded, color: Color(0xFFB7C4D6)),
+                ],
               ),
-              const Icon(Icons.chevron_right_rounded, color: Color(0xFFB7C4D6)),
+              if (canEdit) ...[
+                const SizedBox(height: 12),
+                Material(
+                  color: MarketColors.chipBg,
+                  borderRadius: BorderRadius.circular(14),
+                  child: InkWell(
+                    onTap: () => setState(() => _expanded = !_expanded),
+                    borderRadius: BorderRadius.circular(14),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.tune_rounded, size: 18, color: MarketColors.primary),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text(
+                              'Adjust bid (±₹5,000)',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                                color: MarketColors.text,
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            _expanded
+                                ? Icons.expand_less_rounded
+                                : Icons.expand_more_rounded,
+                            color: MarketColors.muted,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                if (_expanded) ...[
+                  const SizedBox(height: 10),
+                  BidAmountStepper(
+                    amount: _amount,
+                    askPrice: item.askPrice,
+                    enabled: !_saving,
+                    onChanged: (v) => setState(() => _amount = v),
+                  ),
+                  const SizedBox(height: 10),
+                  FilledButton(
+                    onPressed: _saving || _amount.round() == item.amount.round()
+                        ? null
+                        : _saveAmount,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: MarketColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: _saving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'Update bid amount',
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
+                  ),
+                ],
+              ],
             ],
           ),
         ),
@@ -731,7 +857,7 @@ class _StatusChip extends StatelessWidget {
 
 (String, Color) _statusStyle(String status) {
   return switch (status) {
-    'accepted' => ('Accepted', const Color(0xFF1E7A48)),
+    'accepted' => ('Won', const Color(0xFF1E7A48)),
     'rejected' => ('Rejected', const Color(0xFFC0392B)),
     _ => ('Pending', MarketColors.primary),
   };

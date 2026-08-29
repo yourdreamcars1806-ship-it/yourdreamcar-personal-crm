@@ -10,6 +10,7 @@ import '../marketplace/presentation/user_shell.dart';
 import '../marketplace/presentation/admin_bids_page.dart';
 import '../marketplace/presentation/admin_delivery_notes_page.dart';
 import '../marketplace/presentation/admin_listing_requests_page.dart';
+import 'widgets/admin_drawer.dart';
 import '../orders/presentation/orders_page.dart';
 
 /// Main app after login: bottom navigation + tab bodies.
@@ -382,360 +383,41 @@ class _MainShellState extends State<MainShell> {
           const SizedBox(width: 6),
         ],
       ),
-      drawer: Drawer(
-        backgroundColor: _darkMode ? const Color(0xFF11192A) : Colors.white,
-        child: SafeArea(
-          child: Column(
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-                margin: const EdgeInsets.fromLTRB(12, 8, 12, 6),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [const Color(0x331D63ED), const Color(0x1A1D63ED)],
-                  ),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x121D63ED),
-                      blurRadius: 18,
-                      offset: Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Your Dream Car',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: _darkMode ? const Color(0xFFE6EEFF) : const Color(0xFF0F2442),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Menu',
-                      style: TextStyle(
-                        color: _darkMode ? const Color(0xFF9DB0CC) : const Color(0xFF5B769E),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: _darkMode ? const Color(0xFF162138) : Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: _darkMode ? const Color(0xFF2F426A) : const Color(0xFFD4E4FF),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF22C55E).withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(
-                              Icons.sensors_rounded,
-                              color: Color(0xFF16A34A),
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '$_activeUsers active users',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 14,
-                                    color: _darkMode
-                                        ? const Color(0xFFE6EEFF)
-                                        : const Color(0xFF0F2442),
-                                  ),
-                                ),
-                                Text(
-                                  '$_totalUsers registered • last 15 min',
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    color: _darkMode
-                                        ? const Color(0xFF9DB0CC)
-                                        : const Color(0xFF64748B),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SwitchListTile(
-                value: _darkMode,
-                onChanged: _toggleDarkMode,
-                secondary: Icon(
-                  _darkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
-                  color: const Color(0xFF1D63ED),
-                ),
-                title: Text(
-                  'Dark mode',
-                  style: TextStyle(
-                    color: _darkMode ? const Color(0xFFE6EEFF) : const Color(0xFF0F2442),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-              ),
-              ListTile(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                tileColor: _darkMode
-                    ? const Color(0x1A6F8FFF)
-                    : const Color(0x0D1D63ED),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 2,
-                ),
-                leading: const Icon(
-                  Icons.directions_car_rounded,
-                  color: Color(0xFF1D63ED),
-                ),
-                title: Text(
-                  'Total cars',
-                  style: TextStyle(
-                    color: _darkMode ? const Color(0xFFE6EEFF) : const Color(0xFF0F2442),
-                  ),
-                ),
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0x1F1D63ED),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0x661D63ED)),
-                  ),
-                  child: Text(
-                    '$_totalCars',
-                    style: TextStyle(
-                      color: const Color(0xFF1D63ED),
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                onTap: _goToCarManager,
-              ),
-              const SizedBox(height: 4),
-              ListTile(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 2,
-                ),
-                leading: const Icon(
-                  Icons.add_circle_outline_rounded,
-                  color: Color(0xFF1D63ED),
-                ),
-                title: Text(
-                  'Add Car',
-                  style: TextStyle(
-                    color: _darkMode ? const Color(0xFFE6EEFF) : const Color(0xFF0F2442),
-                  ),
-                ),
-                onTap: _goToAddCar,
-              ),
-              const SizedBox(height: 4),
-              ListTile(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 2,
-                ),
-                leading: const Icon(
-                  Icons.gavel_rounded,
-                  color: Color(0xFF1D63ED),
-                ),
-                title: Text(
-                  'User bids',
-                  style: TextStyle(
-                    color: _darkMode ? const Color(0xFFE6EEFF) : const Color(0xFF0F2442),
-                  ),
-                ),
-                onTap: () {
-                  _closeDrawerIfOpen();
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const AdminBidsPage(),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 4),
-              ListTile(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 2,
-                ),
-                leading: const Icon(
-                  Icons.assignment_ind_rounded,
-                  color: Color(0xFF1D63ED),
-                ),
-                title: Text(
-                  'User car requests',
-                  style: TextStyle(
-                    color: _darkMode ? const Color(0xFFE6EEFF) : const Color(0xFF0F2442),
-                  ),
-                ),
-                onTap: () {
-                  _closeDrawerIfOpen();
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const AdminListingRequestsPage(),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 4),
-              ListTile(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 2,
-                ),
-                leading: const Icon(
-                  Icons.receipt_long_rounded,
-                  color: Color(0xFF1D63ED),
-                ),
-                title: Text(
-                  'Delivery notes',
-                  style: TextStyle(
-                    color: _darkMode ? const Color(0xFFE6EEFF) : const Color(0xFF0F2442),
-                  ),
-                ),
-                onTap: () {
-                  _closeDrawerIfOpen();
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const AdminDeliveryNotesPage(),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 4),
-              ListTile(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 2,
-                ),
-                leading: const Icon(
-                  Icons.post_add_rounded,
-                  color: Color(0xFF1D63ED),
-                ),
-                title: Text(
-                  'Add Order',
-                  style: TextStyle(
-                    color: _darkMode ? const Color(0xFFE6EEFF) : const Color(0xFF0F2442),
-                  ),
-                ),
-                onTap: _goToAddOrder,
-              ),
-              const SizedBox(height: 4),
-              ListTile(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 2,
-                ),
-                leading: const Icon(
-                  Icons.add_card_rounded,
-                  color: Color(0xFF1D63ED),
-                ),
-                title: Text(
-                  'Add Expense',
-                  style: TextStyle(
-                    color: _darkMode ? const Color(0xFFE6EEFF) : const Color(0xFF0F2442),
-                  ),
-                ),
-                onTap: _goToAddExpense,
-              ),
-              const SizedBox(height: 4),
-              ListTile(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 2,
-                ),
-                leading: const Icon(
-                  Icons.lock_reset_rounded,
-                  color: Color(0xFF031273),
-                ),
-                title: Text(
-                  'Change password',
-                  style: TextStyle(
-                    color: _darkMode ? const Color(0xFFE6EEFF) : const Color(0xFF0F2442),
-                  ),
-                ),
-                onTap: _showChangePasswordDialog,
-              ),
-              Divider(
-                height: 1,
-                color: _darkMode
-                    ? const Color(0xFF2F426A)
-                    : const Color(0x226CB6FF),
-              ),
-              ListTile(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 2,
-                ),
-                leading: const Icon(
-                  Icons.logout_rounded,
-                  color: Color(0xFFFF8A80),
-                ),
-                title: Text(
-                  _loggingOut ? 'Logging out...' : 'Logout',
-                  style: TextStyle(
-                    color: _darkMode ? const Color(0xFFE6EEFF) : const Color(0xFF0F2442),
-                  ),
-                ),
-                onTap: _loggingOut ? null : _logout,
-              ),
-            ],
-          ),
-        ),
+      drawer: AdminDrawer(
+        darkMode: _darkMode,
+        activeUsers: _activeUsers,
+        totalUsers: _totalUsers,
+        totalCars: _totalCars,
+        loggingOut: _loggingOut,
+        onDarkModeChanged: _toggleDarkMode,
+        onCarManager: _goToCarManager,
+        onAddCar: _goToAddCar,
+        onUserBids: () {
+          _closeDrawerIfOpen();
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const AdminBidsPage()),
+          );
+        },
+        onListingRequests: () {
+          _closeDrawerIfOpen();
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const AdminListingRequestsPage(),
+            ),
+          );
+        },
+        onDeliveryNotes: () {
+          _closeDrawerIfOpen();
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => const AdminDeliveryNotesPage(),
+            ),
+          );
+        },
+        onAddOrder: _goToAddOrder,
+        onAddExpense: _goToAddExpense,
+        onChangePassword: _showChangePasswordDialog,
+        onLogout: _logout,
       ),
       body: IndexedStack(
         index: _index,
