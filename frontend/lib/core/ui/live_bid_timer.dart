@@ -213,8 +213,8 @@ mixin LiveBidSessionMixin<T extends StatefulWidget> on State<T>, TickerProviderS
   Duration liveElapsed = Duration.zero;
   late final DateTime _liveStartedAt;
 
-  void initLiveBidSession() {
-    _liveStartedAt = DateTime.now();
+  void initLiveBidSession({DateTime? startedAt}) {
+    _liveStartedAt = startedAt ?? DateTime.now();
     livePulse = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1100),

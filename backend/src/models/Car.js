@@ -38,6 +38,8 @@ const carSchema = new mongoose.Schema(
     imagePublicId: { type: String, required: true },
     exteriorImages: { type: [carImageSchema], default: [] },
     interiorImages: { type: [carImageSchema], default: [] },
+    liveBidEnabled: { type: Boolean, default: false, index: true },
+    liveBidStartedAt: { type: Date },
   },
   { timestamps: true },
 );

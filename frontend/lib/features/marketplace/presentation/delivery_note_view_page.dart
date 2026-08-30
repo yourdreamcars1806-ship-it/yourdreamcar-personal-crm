@@ -150,7 +150,9 @@ class DeliveryNoteViewPage extends StatelessWidget {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          'VEHICLE DELIVERY NOTE',
+                          note.isBuy
+                              ? 'VEHICLE PURCHASE NOTE'
+                              : 'VEHICLE DELIVERY NOTE',
                           style: GoogleFonts.dmSans(
                             color: const Color(0xFFFFC14A),
                             fontWeight: FontWeight.w800,
@@ -160,7 +162,9 @@ class DeliveryNoteViewPage extends StatelessWidget {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          note.customerName.isNotEmpty ? note.customerName : 'Customer',
+                          note.customerName.isNotEmpty
+                              ? note.customerName
+                              : (note.isBuy ? 'Seller' : 'Customer'),
                           style: GoogleFonts.dmSans(
                             color: Colors.white,
                             fontWeight: FontWeight.w700,
@@ -185,8 +189,11 @@ class DeliveryNoteViewPage extends StatelessWidget {
                   _row('Date', _fmtDate(note.deliveryDate)),
                   _row('Time', note.deliveryTime),
                 ]),
-                _section('Customer details', Icons.person_outline_rounded, [
-                  _row('Customer name', note.customerName),
+                _section(
+                  note.isBuy ? 'Seller details' : 'Customer details',
+                  Icons.person_outline_rounded,
+                  [
+                  _row(note.isBuy ? 'Seller name' : 'Customer name', note.customerName),
                   _row('Address', note.customerAddress),
                   _row('Mobile', note.customerMobile),
                   _row('ID proof', note.idProofType),
@@ -222,7 +229,9 @@ class DeliveryNoteViewPage extends StatelessWidget {
                       border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
                     child: Text(
-                      'I, ${_val(note.declarationCustomerName)}, confirm physical delivery of the vehicle and receipt of keys/documents as listed above.',
+                      note.isBuy
+                          ? 'I, ${_val(note.declarationCustomerName)}, confirm sale of the vehicle to Your Dream Cars and handover of keys/documents as listed above.'
+                          : 'I, ${_val(note.declarationCustomerName)}, confirm physical delivery of the vehicle and receipt of keys/documents as listed above.',
                       style: GoogleFonts.dmSans(
                         fontSize: 13.5,
                         height: 1.5,
@@ -231,7 +240,10 @@ class DeliveryNoteViewPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  _row('Customer signature name', note.customerSignatureName),
+                  _row(
+                    note.isBuy ? 'Seller signature name' : 'Customer signature name',
+                    note.customerSignatureName,
+                  ),
                   _row('Signed date', _fmtDate(note.signedAt)),
                   if (note.authorizedSignatoryName.isNotEmpty)
                     _row('Authorized signatory', note.authorizedSignatoryName),

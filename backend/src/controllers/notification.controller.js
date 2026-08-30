@@ -1,20 +1,45 @@
 const Notification = require('../models/Notification');
 const { subscribe, broadcast, toPublic } = require('../services/notificationHub');
 
+function carLabel(car) {
+  const title = String(car.title || `${car.brand || ''} ${car.model || ''}`).trim();
+  const year = car.year ? String(car.year) : '';
+  return [title, year].filter(Boolean).join(' ');
+}
+
 async function notifyCarAdded(car) {
   if (!car) return null;
   if (String(car.availability || '').toLowerCase() === 'outstock') {
     return null;
   }
-  const title = String(car.title || `${car.brand || ''} ${car.model || ''}`).trim();
-  const year = car.year ? String(car.year) : '';
-  const label = [title, year].filter(Boolean).join(' ');
+  const label = carLabel(car);
+  const biddingNote = car.liveBidEnabled
+    ? ' Live bidding is open — tap to view & bid.'
+    : ' Tap to view details.';
   const doc = await Notification.create({
     type: 'car_added',
     title: 'New Car Arrival!',
-    body: `${label} is live — bidding is open. Tap to view & place your bid.`,
+    body: `${label} is now live.${biddingNote}`,
     carId: car._id,
-    carTitle: title,
+    carTitle: String(car.title || '').trim(),
+    imageUrl: car.imageUrl || '',
+  });
+  broadcast(doc);
+  return doc;
+}
+
+async function notifyLiveBidStarted(car) {
+  if (!car || !car.liveBidEnabled) return null;
+  if (String(car.availability || '').toLowerCase() === 'outstock') {
+    return null;
+  }
+  const label = carLabel(car);
+  const doc = await Notification.create({
+    type: 'live_bid',
+    title: 'Live Bidding Started!',
+    body: `${label} — place your bid now. Tap to open.`,
+    carId: car._id,
+    carTitle: String(car.title || '').trim(),
     imageUrl: car.imageUrl || '',
   });
   broadcast(doc);
@@ -53,6 +78,7 @@ function streamNotifications(req, res) {
 
 module.exports = {
   notifyCarAdded,
+  notifyLiveBidStarted,
   listNotifications,
   streamNotifications,
 };

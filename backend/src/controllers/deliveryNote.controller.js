@@ -5,6 +5,7 @@ const { buildDeliveryNotePdf } = require('../services/deliveryNotePdf');
 function toDto(doc, extra = {}) {
   return {
     id: String(doc._id),
+    noteType: doc.noteType === 'buy' ? 'buy' : 'sell',
     deliveryNoteNo: doc.deliveryNoteNo || '',
     deliveryDate: doc.deliveryDate || null,
     deliveryTime: doc.deliveryTime || '',
@@ -56,8 +57,11 @@ function parseBody(body) {
   const paymentModes = ['Cash', 'UPI', 'Bank Transfer', 'Finance', 'Other', ''];
   const paymentMode = str(body.paymentMode);
   const normalizedPayment = paymentModes.includes(paymentMode) ? paymentMode : '';
+  const noteTypeRaw = str(body.noteType).toLowerCase();
+  const noteType = noteTypeRaw === 'buy' ? 'buy' : 'sell';
 
   return {
+    noteType,
     deliveryNoteNo: str(body.deliveryNoteNo),
     deliveryDate: date(body.deliveryDate),
     deliveryTime: str(body.deliveryTime),
@@ -143,8 +147,11 @@ async function createNote(req, res) {
 
     const assigneeId = await resolveAssigneeUserId(req.body || {});
     if (!assigneeId) {
+      const isBuy = data.noteType === 'buy';
       return res.status(400).json({
-        error: 'Customer account email is required so the buyer can access this note',
+        error: isBuy
+          ? 'Seller account email is required so they can access this note'
+          : 'Customer account email is required so the buyer can access this note',
       });
     }
 

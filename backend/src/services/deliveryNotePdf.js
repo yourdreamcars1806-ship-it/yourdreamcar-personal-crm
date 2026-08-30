@@ -106,6 +106,12 @@ function buildDeliveryNotePdf(note) {
 
     const half = pageW / 2 - 8;
     const quarter = pageW / 4 - 8;
+    const isBuy = note.noteType === 'buy';
+    const docTitle = isBuy ? 'VEHICLE PURCHASE NOTE' : 'VEHICLE DELIVERY NOTE';
+    const partySection = isBuy ? 'Seller Details' : 'Customer Details';
+    const partyLabel = isBuy ? 'Seller Name' : 'Customer Name';
+    const sigLabel = isBuy ? 'Seller Signature' : 'Customer Signature';
+    const sigNameLabel = isBuy ? 'Seller Name' : 'Customer Name';
 
     // Header with brand logo
     y = ensureSpace(78, y);
@@ -125,9 +131,10 @@ function buildDeliveryNotePdf(note) {
       .font('Helvetica-Bold')
       .fontSize(15)
       .fillColor('#031273')
-      .text('VEHICLE DELIVERY NOTE', marginLeft, y, { width: pageW, align: 'center' });
+      .text(docTitle, marginLeft, y, { width: pageW, align: 'center' });
     y += 28;
 
+    y = drawField('Note Type', isBuy ? 'Buy (from customer)' : 'Sell (to customer)', marginLeft, y, pageW);
     y = drawField('Delivery Note No.', note.deliveryNoteNo, marginLeft, y, pageW);
     drawFieldsRow([
       { label: 'Date', value: fmtDate(note.deliveryDate), x: marginLeft, width: half },
@@ -140,8 +147,8 @@ function buildDeliveryNotePdf(note) {
     ]);
     y += 4;
 
-    sectionTitle('Customer Details');
-    y = drawField('Customer Name', note.customerName, marginLeft, y, pageW);
+    sectionTitle(partySection);
+    y = drawField(partyLabel, note.customerName, marginLeft, y, pageW);
     y = drawField('Address', note.customerAddress, marginLeft, y, pageW);
     drawFieldsRow([
       { label: 'Mobile No.', value: note.customerMobile, x: marginLeft, width: half },
@@ -190,11 +197,13 @@ function buildDeliveryNotePdf(note) {
     doc.text(docsText, marginLeft, y, { width: pageW, lineGap: 2 });
     y += docsH + 12;
 
-    sectionTitle('Delivery Declaration');
+    sectionTitle(isBuy ? 'Purchase Declaration' : 'Delivery Declaration');
     const declName = val(note.declarationCustomerName || note.customerName);
-    const declaration =
-      `I, ${declName}, confirm that I have inspected the above-mentioned vehicle and have taken physical delivery of it from Your Dream Cars in the condition mutually agreed upon.\n\n` +
-      'I acknowledge receipt of the vehicle, keys and documents/items mentioned above. Any pending documentation, ownership transfer, payment or other commitment, if applicable, shall be completed according to the separately agreed terms.';
+    const declaration = isBuy
+      ? `I, ${declName}, confirm that I have sold the above-mentioned vehicle to Your Dream Cars and have handed over physical possession of the vehicle, keys and documents/items listed above in the condition mutually agreed upon.\n\n` +
+        'I acknowledge receipt of payment as stated above. Any pending documentation, ownership transfer, or other commitment shall be completed according to the separately agreed terms.'
+      : `I, ${declName}, confirm that I have inspected the above-mentioned vehicle and have taken physical delivery of it from Your Dream Cars in the condition mutually agreed upon.\n\n` +
+        'I acknowledge receipt of the vehicle, keys and documents/items mentioned above. Any pending documentation, ownership transfer, payment or other commitment, if applicable, shall be completed according to the separately agreed terms.';
     doc.font('Helvetica').fontSize(9.5).fillColor('#334155');
     const declH = doc.heightOfString(declaration, { width: pageW, lineGap: 3 });
     y = ensureSpace(declH + 12, y);
@@ -208,13 +217,13 @@ function buildDeliveryNotePdf(note) {
       .moveTo(marginLeft + pageW * 0.55, sigY + 36)
       .lineTo(marginLeft + pageW, sigY + 36)
       .stroke('#CBD5E1');
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('#031273').text('Customer Signature', marginLeft, sigY + 42);
+    doc.font('Helvetica-Bold').fontSize(9).fillColor('#031273').text(sigLabel, marginLeft, sigY + 42);
     doc.text('For YOUR DREAM CARS — Authorized Signature', marginLeft + pageW * 0.55, sigY + 42);
     y = sigY + 62;
 
     drawFieldsRow([
       {
-        label: 'Customer Name',
+        label: sigNameLabel,
         value: note.customerSignatureName || note.customerName,
         x: marginLeft,
         width: half,
@@ -229,8 +238,9 @@ function buildDeliveryNotePdf(note) {
     y = drawField('Authorized Name', note.authorizedSignatoryName, marginLeft, y, half);
     y = drawField('Vehicle Handed Over By', note.vehicleHandedOverBy, marginLeft, y, pageW);
 
-    const footerText =
-      'Keep two signed copies — one for the customer and one for Your Dream Cars. This delivery note supplements your sale agreement/receipt and RTO transfer documents.';
+    const footerText = isBuy
+      ? 'Keep two signed copies — one for the seller and one for Your Dream Cars. This purchase note supplements your sale agreement/receipt and RTO transfer documents.'
+      : 'Keep two signed copies — one for the customer and one for Your Dream Cars. This delivery note supplements your sale agreement/receipt and RTO transfer documents.';
     doc.font('Helvetica').fontSize(8).fillColor('#94A3B8');
     const footerH = doc.heightOfString(footerText, { width: pageW, align: 'center' });
     y = ensureSpace(footerH + 12, y + 16);

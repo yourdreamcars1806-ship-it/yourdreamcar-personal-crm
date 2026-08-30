@@ -41,7 +41,15 @@ class _BidFormPageState extends State<BidFormPage>
   @override
   void initState() {
     super.initState();
-    initLiveBidSession();
+    if (!widget.car.canBid) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        AppToast.info(context, 'Live bidding is not open for this car');
+        Navigator.pop(context);
+      });
+      return;
+    }
+    initLiveBidSession(startedAt: widget.car.liveBidStartedAt);
     _offerAmount = _roundOffer(widget.car.sellPrice).toDouble();
     _amount.text = '${_offerAmount.round()}';
     _prefill();

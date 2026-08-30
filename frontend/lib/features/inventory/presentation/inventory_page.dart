@@ -57,6 +57,7 @@ class InventoryPageState extends State<InventoryPage> {
   String _fuelType = 'PETROL';
   String _ownership = '1st owner';
   String _availability = 'stock';
+  bool _liveBidEnabled = false;
   DateTime _buyDate = DateTime.now();
   DateTime? _saleDate;
   List<CarRecord> _cars = [];
@@ -192,7 +193,56 @@ class InventoryPageState extends State<InventoryPage> {
       'buyDate': _fmtDate(_buyDate),
       'saleDate': _saleDate == null ? '' : _fmtDate(_saleDate!),
       'description': _descriptionController.text.trim(),
+      'liveBidEnabled': _liveBidEnabled ? 'true' : 'false',
     };
+  }
+
+  Map<String, String> _fieldsFromCar(CarRecord car, {bool? liveBidEnabled}) {
+    return {
+      'title': car.title,
+      'vehicleNumber': car.vehicleNumber,
+      'brand': car.brand,
+      'model': car.model,
+      'fuelType': car.fuelType,
+      'ownership': car.ownership,
+      'availability': car.availability,
+      'year': '${car.year}',
+      'buyPrice': car.buyPrice.toStringAsFixed(0),
+      'sellPrice': car.sellPrice.toStringAsFixed(0),
+      'buyDate': _fmtDate(car.buyDate),
+      'saleDate': car.saleDate == null ? '' : _fmtDate(car.saleDate!),
+      'description': car.description,
+      'liveBidEnabled': (liveBidEnabled ?? car.liveBidEnabled) ? 'true' : 'false',
+    };
+  }
+
+  Future<void> _toggleLiveBid(CarRecord car, bool enabled) async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _statusMessage = enabled ? 'Starting live bid…' : 'Stopping live bid…';
+    });
+    try {
+      await _carsApi.updateCar(
+        id: car.id,
+        fields: _fieldsFromCar(car, liveBidEnabled: enabled),
+        keepExteriorUrls: car.exteriorImages,
+        keepInteriorUrls: car.interiorImages,
+      );
+      await _loadCars();
+      if (!mounted) return;
+      AppToast.success(
+        context,
+        enabled ? 'Live bidding enabled' : 'Live bidding disabled',
+      );
+      setState(() => _statusMessage = null);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _statusMessage = e.toString());
+      AppToast.error(context, e.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _submitCar() async {
@@ -276,6 +326,7 @@ class InventoryPageState extends State<InventoryPage> {
     _fuelType = 'PETROL';
     _ownership = '1st owner';
     _availability = 'stock';
+    _liveBidEnabled = false;
     _buyDate = DateTime.now();
     _saleDate = null;
   }
@@ -299,6 +350,7 @@ class InventoryPageState extends State<InventoryPage> {
       _fuelType = car.fuelType;
       _ownership = car.ownership;
       _availability = car.availability;
+      _liveBidEnabled = car.liveBidEnabled;
       _buyDate = car.buyDate;
       _saleDate = car.saleDate;
       _showAddForm = true;
@@ -972,6 +1024,55 @@ class InventoryPageState extends State<InventoryPage> {
                   ),
                 ),
                 fieldCell(
+                  Container(
+                    width: maxW,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _liveBidEnabled
+                          ? const Color(0x14E53935)
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: _liveBidEnabled
+                            ? const Color(0x55E53935)
+                            : _formBorder,
+                      ),
+                    ),
+                    child: SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: _liveBidEnabled,
+                      onChanged: _busy
+                          ? null
+                          : (v) => setState(() => _liveBidEnabled = v),
+                      activeColor: const Color(0xFFE53935),
+                      title: const Text(
+                        'Live bidding',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: _formInk,
+                        ),
+                      ),
+                      subtitle: Text(
+                        _liveBidEnabled
+                            ? 'Users can place bids on this car'
+                            : 'Bidding closed until you turn this on',
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: _formLabel,
+                        ),
+                      ),
+                      secondary: Icon(
+                        _liveBidEnabled
+                            ? Icons.gavel_rounded
+                            : Icons.gavel_outlined,
+                        color: _liveBidEnabled
+                            ? const Color(0xFFE53935)
+                            : _formLabel,
+                      ),
+                    ),
+                  ),
+                ),
+                fieldCell(
                   _textField(
                     controller: _yearController,
                     label: 'Year',
@@ -1377,6 +1478,7 @@ class InventoryPageState extends State<InventoryPage> {
                         onView: () => _openDetails(car),
                         onEdit: () => _startEdit(car),
                         onDelete: () => _deleteCar(car),
+                        onToggleLiveBid: (enabled) => _toggleLiveBid(car, enabled),
                       );
                     },
                   ),
@@ -1475,6 +1577,7 @@ class _InventoryDetailCard extends StatelessWidget {
     required this.onView,
     required this.onEdit,
     required this.onDelete,
+    required this.onToggleLiveBid,
   });
 
   final CarRecord car;
@@ -1482,6 +1585,7 @@ class _InventoryDetailCard extends StatelessWidget {
   final VoidCallback onView;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final ValueChanged<bool> onToggleLiveBid;
 
   static String _fmtPrice(double v) {
     if (v >= 100000) {
@@ -1624,6 +1728,30 @@ class _InventoryDetailCard extends StatelessWidget {
                                 ),
                               ),
                             ),
+                            if (inStock && car.liveBidEnabled) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0x1FE53935),
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(
+                                    color: const Color(0x77E53935),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'LIVE BID',
+                                  style: TextStyle(
+                                    color: Color(0xFFC62828),
+                                    fontSize: 10.8,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                         const SizedBox(height: 4),
@@ -1685,6 +1813,10 @@ class _InventoryDetailCard extends StatelessWidget {
                       label: 'Availability',
                       value: inStock ? 'In Stock' : 'Sold',
                     ),
+                    _DetailRow(
+                      label: 'Live bidding',
+                      value: car.liveBidEnabled ? 'Open' : 'Closed',
+                    ),
                     _DetailRow(label: 'Buy date', value: _fmtDate(car.buyDate)),
                     _DetailRow(
                       label: 'Sell date',
@@ -1727,6 +1859,53 @@ class _InventoryDetailCard extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
+                ),
+              ],
+              if (inStock) ...[
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: car.liveBidEnabled
+                        ? const Color(0x12E53935)
+                        : (isDark ? const Color(0xFF101B30) : const Color(0xFFF9FBFF)),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: car.liveBidEnabled
+                          ? const Color(0x55E53935)
+                          : (isDark ? const Color(0xFF2F426A) : const Color(0xFFDCE9FF)),
+                    ),
+                  ),
+                  child: SwitchListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                    value: car.liveBidEnabled,
+                    onChanged: busy ? null : onToggleLiveBid,
+                    activeColor: const Color(0xFFE53935),
+                    title: Text(
+                      car.liveBidEnabled ? 'Live bid running' : 'Start live bid',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13.5,
+                        color: isDark ? const Color(0xFFE6EEFF) : const Color(0xFF0F2442),
+                      ),
+                    ),
+                    subtitle: Text(
+                      car.liveBidEnabled
+                          ? 'Users can bid on this car now'
+                          : 'Turn on to allow bidding',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? const Color(0xFF9DB0CC) : BrandColors.muted,
+                      ),
+                    ),
+                    secondary: Icon(
+                      car.liveBidEnabled ? Icons.gavel_rounded : Icons.gavel_outlined,
+                      color: car.liveBidEnabled
+                          ? const Color(0xFFE53935)
+                          : BrandColors.muted,
+                    ),
                   ),
                 ),
               ],

@@ -57,6 +57,7 @@ class _DeliveryNoteFormPageState extends State<DeliveryNoteFormPage> {
   late final TextEditingController _userEmail;
 
   DateTime? _deliveryDate;
+  String _noteType = 'sell';
   String _paymentMode = '';
   bool _submitting = false;
   final Set<String> _docChecks = {};
@@ -118,6 +119,7 @@ class _DeliveryNoteFormPageState extends State<DeliveryNoteFormPage> {
     _handedOverBy = TextEditingController(text: e?.vehicleHandedOverBy ?? '');
     _userEmail = TextEditingController(text: e?.userEmail ?? '');
     _deliveryDate = e?.deliveryDate ?? DateTime.now();
+    _noteType = e?.noteType ?? 'sell';
     _paymentMode = e?.paymentMode ?? '';
 
     if (_documents.text.isNotEmpty) {
@@ -195,6 +197,7 @@ class _DeliveryNoteFormPageState extends State<DeliveryNoteFormPage> {
     double? parseDouble(String s) => double.tryParse(s.trim());
     _syncDocField();
     return {
+      'noteType': _noteType,
       if (widget.adminMode && _noteNo.text.trim().isNotEmpty)
         'deliveryNoteNo': _noteNo.text.trim(),
       'deliveryDate': _deliveryDate?.toUtc().toIso8601String(),
@@ -373,7 +376,9 @@ class _DeliveryNoteFormPageState extends State<DeliveryNoteFormPage> {
                                       ),
                                       const SizedBox(height: 6),
                                       Text(
-                                        'Vehicle delivery note',
+                                        _noteType == 'buy'
+                                            ? 'Vehicle purchase note'
+                                            : 'Vehicle delivery note',
                                         style: GoogleFonts.dmSans(
                                           color: const Color(0xFFFFC14A),
                                           fontWeight: FontWeight.w700,
@@ -402,6 +407,39 @@ class _DeliveryNoteFormPageState extends State<DeliveryNoteFormPage> {
                   padding: const EdgeInsets.fromLTRB(16, 14, 16, 110),
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
+                      if (widget.adminMode)
+                        _section(
+                          step: '00',
+                          icon: Icons.swap_horiz_rounded,
+                          title: 'Note type',
+                          subtitle: 'Buy from customer or sell to customer',
+                          children: [
+                            SegmentedButton<String>(
+                              segments: const [
+                                ButtonSegment(
+                                  value: 'sell',
+                                  label: Text('Sell'),
+                                  icon: Icon(Icons.sell_outlined, size: 18),
+                                ),
+                                ButtonSegment(
+                                  value: 'buy',
+                                  label: Text('Buy'),
+                                  icon: Icon(Icons.shopping_bag_outlined, size: 18),
+                                ),
+                              ],
+                              selected: {_noteType},
+                              onSelectionChanged: _submitting
+                                  ? null
+                                  : (s) => setState(() => _noteType = s.first),
+                              style: ButtonStyle(
+                                visualDensity: VisualDensity.compact,
+                                textStyle: WidgetStatePropertyAll(
+                                  GoogleFonts.dmSans(fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       _section(
                         step: '01',
                         icon: Icons.event_note_rounded,
@@ -411,10 +449,14 @@ class _DeliveryNoteFormPageState extends State<DeliveryNoteFormPage> {
                           if (widget.adminMode && widget.existing == null)
                             _field(
                               _userEmail,
-                              'Customer account email',
+                              _noteType == 'buy'
+                                  ? 'Seller account email'
+                                  : 'Customer account email',
                               icon: Icons.alternate_email_rounded,
                               required: true,
-                              hint: 'Buyer must have this login email',
+                              hint: _noteType == 'buy'
+                                  ? 'Seller must have this login email'
+                                  : 'Buyer must have this login email',
                               keyboard: TextInputType.emailAddress,
                             ),
                           if (widget.adminMode)
@@ -440,12 +482,14 @@ class _DeliveryNoteFormPageState extends State<DeliveryNoteFormPage> {
                       _section(
                         step: '02',
                         icon: Icons.person_outline_rounded,
-                        title: 'Customer details',
-                        subtitle: 'Buyer information & ID proof',
+                        title: _noteType == 'buy' ? 'Seller details' : 'Customer details',
+                        subtitle: _noteType == 'buy'
+                            ? 'Person selling the vehicle to us'
+                            : 'Buyer information & ID proof',
                         children: [
                           _field(
                             _customerName,
-                            'Customer name',
+                            _noteType == 'buy' ? 'Seller name' : 'Customer name',
                             icon: Icons.badge_outlined,
                             required: true,
                           ),

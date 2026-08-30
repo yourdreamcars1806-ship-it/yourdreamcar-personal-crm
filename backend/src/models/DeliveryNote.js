@@ -2,6 +2,12 @@ const mongoose = require('mongoose');
 
 const deliveryNoteSchema = new mongoose.Schema(
   {
+    noteType: {
+      type: String,
+      enum: ['buy', 'sell'],
+      default: 'sell',
+      index: true,
+    },
     deliveryNoteNo: { type: String, trim: true, default: '' },
     deliveryDate: { type: Date },
     deliveryTime: { type: String, trim: true, default: '' },

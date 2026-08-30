@@ -144,6 +144,7 @@ class DeliveryNoteService {
 class DeliveryNoteRecord {
   const DeliveryNoteRecord({
     required this.id,
+    required this.noteType,
     required this.deliveryNoteNo,
     this.deliveryDate,
     required this.deliveryTime,
@@ -177,6 +178,7 @@ class DeliveryNoteRecord {
   });
 
   final String id;
+  final String noteType;
   final String deliveryNoteNo;
   final DateTime? deliveryDate;
   final String deliveryTime;
@@ -213,6 +215,11 @@ class DeliveryNoteRecord {
     return parts.isEmpty ? 'Vehicle' : parts.join(' ');
   }
 
+  bool get isBuy => noteType == 'buy';
+  bool get isSell => !isBuy;
+
+  String get noteTypeLabel => isBuy ? 'Buy' : 'Sell';
+
   factory DeliveryNoteRecord.fromJson(Map<String, dynamic> json) {
     DateTime? parseDate(dynamic v) {
       if (v == null) return null;
@@ -233,6 +240,7 @@ class DeliveryNoteRecord {
 
     return DeliveryNoteRecord(
       id: json['id']?.toString() ?? '',
+      noteType: (json['noteType'] ?? 'sell').toString() == 'buy' ? 'buy' : 'sell',
       deliveryNoteNo: json['deliveryNoteNo']?.toString() ?? '',
       deliveryDate: parseDate(json['deliveryDate']),
       deliveryTime: json['deliveryTime']?.toString() ?? '',
@@ -269,6 +277,7 @@ class DeliveryNoteRecord {
   Map<String, dynamic> toJson() {
     String? iso(DateTime? d) => d?.toUtc().toIso8601String();
     return {
+      'noteType': noteType,
       'deliveryNoteNo': deliveryNoteNo,
       'deliveryDate': iso(deliveryDate),
       'deliveryTime': deliveryTime,

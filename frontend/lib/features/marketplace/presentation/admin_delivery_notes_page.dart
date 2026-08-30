@@ -427,13 +427,49 @@ class _NoteCard extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(height: 2),
-                              Text(
-                                item.deliveryNoteNo.isNotEmpty ? item.deliveryNoteNo : 'Delivery note',
-                                style: GoogleFonts.dmSans(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12.5,
-                                  color: const Color(0xFF0056D2),
-                                ),
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: item.isBuy
+                                          ? const Color(0xFFFFF7ED)
+                                          : const Color(0xFFEFF6FF),
+                                      borderRadius: BorderRadius.circular(999),
+                                      border: Border.all(
+                                        color: item.isBuy
+                                            ? const Color(0xFFFB923C)
+                                            : const Color(0xFF0056D2),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      item.noteTypeLabel,
+                                      style: GoogleFonts.dmSans(
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 11,
+                                        color: item.isBuy
+                                            ? const Color(0xFFAD5B00)
+                                            : const Color(0xFF0056D2),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      item.deliveryNoteNo.isNotEmpty
+                                          ? item.deliveryNoteNo
+                                          : 'Delivery note',
+                                      style: GoogleFonts.dmSans(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 12.5,
+                                        color: const Color(0xFF0056D2),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),

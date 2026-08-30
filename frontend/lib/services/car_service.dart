@@ -243,9 +243,17 @@ class CarRecord {
     required this.imageUrl,
     this.exteriorImages = const [],
     this.interiorImages = const [],
+    this.liveBidEnabled = false,
+    this.liveBidStartedAt,
   });
 
   factory CarRecord.fromJson(Map<String, dynamic> json) {
+    bool parseBool(dynamic v) {
+      if (v is bool) return v;
+      final s = (v ?? '').toString().trim().toLowerCase();
+      return s == 'true' || s == '1' || s == 'yes' || s == 'on';
+    }
+
     return CarRecord(
       id: (json['_id'] ?? json['id'] ?? '').toString(),
       title: (json['title'] ?? '').toString(),
@@ -266,6 +274,10 @@ class CarRecord {
       imageUrl: (json['imageUrl'] ?? '').toString(),
       exteriorImages: _parseUrlList(json['exteriorImages']),
       interiorImages: _parseUrlList(json['interiorImages']),
+      liveBidEnabled: parseBool(json['liveBidEnabled']),
+      liveBidStartedAt: DateTime.tryParse(
+        (json['liveBidStartedAt'] ?? '').toString(),
+      ),
     );
   }
 
@@ -286,8 +298,12 @@ class CarRecord {
   final String imageUrl;
   final List<String> exteriorImages;
   final List<String> interiorImages;
+  final bool liveBidEnabled;
+  final DateTime? liveBidStartedAt;
 
   bool get isSold => availability.toLowerCase() == 'outstock';
+
+  bool get canBid => !isSold && liveBidEnabled;
 
   /// User-facing stock label: "In Stock" or "Sold".
   String get stockStatusLabel => isSold ? 'Sold' : 'In Stock';
@@ -337,6 +353,9 @@ class CarRecord {
         'imageUrl': imageUrl,
         'exteriorImages': exteriorImages,
         'interiorImages': interiorImages,
+        'liveBidEnabled': liveBidEnabled,
+        if (liveBidStartedAt != null)
+          'liveBidStartedAt': liveBidStartedAt!.toUtc().toIso8601String(),
       };
 }
 

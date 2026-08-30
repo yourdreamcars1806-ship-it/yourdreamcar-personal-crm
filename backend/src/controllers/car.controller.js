@@ -1,6 +1,6 @@
 const Car = require('../models/Car');
 const { uploadImageBufferStream } = require('../utils/cloudinaryImageUpload');
-const { notifyCarAdded } = require('./notification.controller');
+const { notifyCarAdded, notifyLiveBidStarted } = require('./notification.controller');
 const SUMMARY_CACHE_TTL_MS = Math.min(
   120_000,
   Math.max(15_000, Number(process.env.CARS_SUMMARY_CACHE_MS) || 45_000)
@@ -165,6 +165,14 @@ function formatCarSaveError(err) {
   return { status: 500, message: raw || 'Save failed' };
 }
 
+function parseBool(v, fallback = false) {
+  if (v === undefined || v === null || v === '') return fallback;
+  const s = String(v).trim().toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(s)) return true;
+  if (['false', '0', 'no', 'off'].includes(s)) return false;
+  return fallback;
+}
+
 function parseCreatePayload(body) {
   return {
     title: String(body.title || '').trim(),
@@ -180,7 +188,23 @@ function parseCreatePayload(body) {
     buyDate: body.buyDate ? new Date(body.buyDate) : null,
     saleDate: body.saleDate ? new Date(body.saleDate) : null,
     description: String(body.description || '').trim(),
+    liveBidEnabled: parseBool(body.liveBidEnabled, false),
   };
+}
+
+function applyLiveBidTiming(parsed, previous) {
+  const wasEnabled = previous?.liveBidEnabled === true;
+  const nowEnabled = parsed.liveBidEnabled === true;
+  if (nowEnabled && !wasEnabled) {
+    parsed.liveBidStartedAt = new Date();
+  } else if (!nowEnabled) {
+    parsed.liveBidStartedAt = null;
+  } else if (previous?.liveBidStartedAt) {
+    parsed.liveBidStartedAt = previous.liveBidStartedAt;
+  } else if (nowEnabled) {
+    parsed.liveBidStartedAt = new Date();
+  }
+  return parsed;
 }
 
 function validatePayload(data, { requireImage }) {
@@ -232,6 +256,7 @@ async function createCar(req, res, cloudinary) {
     }
 
     const parsed = parseCreatePayload(req.body);
+    applyLiveBidTiming(parsed, null);
     const validationError = validatePayload(parsed, { requireImage: false });
     if (validationError) {
       return res.status(400).json({ error: validationError });
@@ -261,6 +286,11 @@ async function createCar(req, res, cloudinary) {
     notifyCarAdded(car).catch((err) => {
       console.error('[notify] car_added failed:', err.message);
     });
+    if (car.liveBidEnabled) {
+      notifyLiveBidStarted(car).catch((err) => {
+        console.error('[notify] live_bid failed:', err.message);
+      });
+    }
     return res.status(201).json({ car: toClientCar(car, true) });
   } catch (err) {
     const { status, message } = formatCarSaveError(err);
@@ -287,11 +317,11 @@ async function listCars(req, res) {
     const admin = isAdminReq(req);
     const selectFields = admin
       ? omitDesc
-        ? '_id title vehicleNumber brand model fuelType ownership availability year buyPrice sellPrice buyDate saleDate imageUrl exteriorImages interiorImages createdAt'
-        : '_id title vehicleNumber brand model fuelType ownership availability year buyPrice sellPrice buyDate saleDate description imageUrl exteriorImages interiorImages createdAt'
+        ? '_id title vehicleNumber brand model fuelType ownership availability year buyPrice sellPrice buyDate saleDate imageUrl exteriorImages interiorImages liveBidEnabled liveBidStartedAt createdAt'
+        : '_id title vehicleNumber brand model fuelType ownership availability year buyPrice sellPrice buyDate saleDate description imageUrl exteriorImages interiorImages liveBidEnabled liveBidStartedAt createdAt'
       : omitDesc
-        ? '_id title vehicleNumber brand model fuelType ownership availability year sellPrice saleDate imageUrl createdAt'
-        : '_id title vehicleNumber brand model fuelType ownership availability year sellPrice saleDate description imageUrl createdAt';
+        ? '_id title vehicleNumber brand model fuelType ownership availability year sellPrice saleDate imageUrl liveBidEnabled liveBidStartedAt createdAt'
+        : '_id title vehicleNumber brand model fuelType ownership availability year sellPrice saleDate description imageUrl liveBidEnabled liveBidStartedAt createdAt';
 
     const [cars, summary] = await Promise.all([
       Car.find(q)
@@ -346,6 +376,8 @@ async function updateCar(req, res, cloudinary) {
     }
 
     const parsed = parseCreatePayload({ ...car.toObject(), ...req.body });
+    const wasLiveBidEnabled = car.liveBidEnabled === true;
+    applyLiveBidTiming(parsed, car);
 
     const preValidate = validatePayload(parsed, { requireImage: false });
     if (preValidate) {
@@ -411,6 +443,11 @@ async function updateCar(req, res, cloudinary) {
     Object.assign(car, parsed);
     await car.save();
     invalidateSummaryCache();
+    if (!wasLiveBidEnabled && car.liveBidEnabled) {
+      notifyLiveBidStarted(car).catch((err) => {
+        console.error('[notify] live_bid failed:', err.message);
+      });
+    }
     return res.json({ car: toClientCar(car, true) });
   } catch (err) {
     const { status, message } = formatCarSaveError(err);

@@ -406,18 +406,18 @@ class _UserCarDetailsPageState extends State<UserCarDetailsPage> {
                           child: DecoratedBox(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(16),
-                              boxShadow: car.isSold
-                                  ? const []
-                                  : const [
+                              boxShadow: car.canBid
+                                  ? const [
                                       BoxShadow(
                                         color: Color(0x400056D2),
                                         blurRadius: 14,
                                         offset: Offset(0, 6),
                                       ),
-                                    ],
+                                    ]
+                                  : const [],
                             ),
                             child: ElevatedButton(
-                              onPressed: car.isSold ? null : _bidNow,
+                              onPressed: car.canBid ? _bidNow : null,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: MarketColors.primary,
                                 foregroundColor: Colors.white,
@@ -433,12 +433,18 @@ class _UserCarDetailsPageState extends State<UserCarDetailsPage> {
                                   Icon(
                                     car.isSold
                                         ? Icons.lock_outline_rounded
-                                        : Icons.gavel_rounded,
+                                        : car.liveBidEnabled
+                                            ? Icons.gavel_rounded
+                                            : Icons.hourglass_empty_rounded,
                                     size: 18,
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
-                                    car.isSold ? StockLabels.sold : 'Place a bid',
+                                    car.isSold
+                                        ? StockLabels.sold
+                                        : car.liveBidEnabled
+                                            ? 'Place a bid'
+                                            : 'Bidding closed',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w800,
                                       fontSize: 15,
