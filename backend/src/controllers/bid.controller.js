@@ -75,9 +75,6 @@ async function createBid(req, res) {
     if (String(car.availability || '').toLowerCase() === 'outstock') {
       return res.status(400).json({ error: 'This car is no longer available' });
     }
-    if (!car.liveBidEnabled) {
-      return res.status(400).json({ error: 'Live bidding is not open for this car yet' });
-    }
 
     const title = String(car.title || `${car.brand} ${car.model}`).trim();
     const doc = await Bid.create({

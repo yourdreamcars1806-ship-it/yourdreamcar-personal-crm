@@ -37,19 +37,25 @@ class _BidFormPageState extends State<BidFormPage>
   final _messageFocus = FocusNode();
   bool _loading = false;
   double _offerAmount = 0;
+  bool _sessionStarted = false;
+
+  bool get _isLive => widget.car.liveBidEnabled && !widget.car.isSold;
 
   @override
   void initState() {
     super.initState();
-    if (!widget.car.canBid) {
+    if (widget.car.isSold) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        AppToast.info(context, 'Live bidding is not open for this car');
+        AppToast.info(context, 'This car is already sold');
         Navigator.pop(context);
       });
       return;
     }
-    initLiveBidSession(startedAt: widget.car.liveBidStartedAt);
+    if (_isLive) {
+      initLiveBidSession(startedAt: widget.car.liveBidStartedAt);
+      _sessionStarted = true;
+    }
     _offerAmount = _roundOffer(widget.car.sellPrice).toDouble();
     _amount.text = '${_offerAmount.round()}';
     _prefill();
@@ -73,7 +79,7 @@ class _BidFormPageState extends State<BidFormPage>
 
   @override
   void dispose() {
-    disposeLiveBidSession();
+    if (_sessionStarted) disposeLiveBidSession();
     _amount.dispose();
     _name.dispose();
     _phone.dispose();
@@ -186,21 +192,22 @@ class _BidFormPageState extends State<BidFormPage>
             onPressed: () => Navigator.of(context).maybePop(),
             icon: const Icon(Icons.arrow_back_rounded),
           ),
-          title: const Text(
-            'Place your bid',
-            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+          title: Text(
+            _isLive ? 'Live bid' : 'Place your bid',
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
           ),
           actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: Center(
-                child: LiveBidTimerDisplay(
-                  elapsed: liveElapsed,
-                  pulse: livePulse,
-                  compact: true,
+            if (_sessionStarted)
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Center(
+                  child: LiveBidTimerDisplay(
+                    elapsed: liveElapsed,
+                    pulse: livePulse,
+                    compact: true,
+                  ),
                 ),
               ),
-            ),
           ],
         ),
         body: Column(
@@ -213,12 +220,13 @@ class _BidFormPageState extends State<BidFormPage>
                   parent: AlwaysScrollableScrollPhysics(),
                 ),
                 slivers: [
-                  SliverToBoxAdapter(
-                    child: LiveBidTimerBanner(
-                      elapsed: liveElapsed,
-                      pulse: livePulse,
+                  if (_sessionStarted)
+                    SliverToBoxAdapter(
+                      child: LiveBidTimerBanner(
+                        elapsed: liveElapsed,
+                        pulse: livePulse,
+                      ),
                     ),
-                  ),
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),

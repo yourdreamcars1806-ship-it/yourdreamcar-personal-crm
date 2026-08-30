@@ -419,7 +419,7 @@ class _UserCarDetailsPageState extends State<UserCarDetailsPage> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        if (car.canBid) ...[
+                        if (car.liveBidEnabled && !car.isSold) ...[
                           LiveBidTicker(
                             startedAt: car.liveBidStartedAt,
                             compact: true,
@@ -431,18 +431,18 @@ class _UserCarDetailsPageState extends State<UserCarDetailsPage> {
                           child: DecoratedBox(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(16),
-                              boxShadow: car.canBid
-                                  ? const [
+                              boxShadow: car.isSold
+                                  ? const []
+                                  : const [
                                       BoxShadow(
                                         color: Color(0x400056D2),
                                         blurRadius: 14,
                                         offset: Offset(0, 6),
                                       ),
-                                    ]
-                                  : const [],
+                                    ],
                             ),
                             child: ElevatedButton(
-                              onPressed: car.canBid ? _bidNow : null,
+                              onPressed: car.isSold ? null : _bidNow,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: MarketColors.primary,
                                 foregroundColor: Colors.white,
@@ -460,7 +460,7 @@ class _UserCarDetailsPageState extends State<UserCarDetailsPage> {
                                         ? Icons.lock_outline_rounded
                                         : car.liveBidEnabled
                                             ? Icons.gavel_rounded
-                                            : Icons.hourglass_empty_rounded,
+                                            : Icons.handshake_outlined,
                                     size: 18,
                                   ),
                                   const SizedBox(width: 8),
@@ -468,8 +468,8 @@ class _UserCarDetailsPageState extends State<UserCarDetailsPage> {
                                     car.isSold
                                         ? StockLabels.sold
                                         : car.liveBidEnabled
-                                            ? 'Place a bid'
-                                            : 'Bidding closed',
+                                            ? 'Live bid'
+                                            : 'Place a bid',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w800,
                                       fontSize: 15,
@@ -728,79 +728,59 @@ class _SpecsGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final crossCount = width >= 360 ? 2 : 1;
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossCount,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: crossCount == 2 ? 2.35 : 3.2,
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 8,
+        crossAxisSpacing: 8,
+        mainAxisExtent: 56,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, i) {
+        final item = items[i];
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: MarketColors.chipBg,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: MarketColors.line),
           ),
-          itemCount: items.length,
-          itemBuilder: (context, i) {
-            final item = items[i];
-            return Container(
-              padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
-              decoration: BoxDecoration(
-                color: MarketColors.chipBg,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: MarketColors.line),
+          child: Row(
+            children: [
+              Icon(item.icon, size: 16, color: MarketColors.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      item.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w700,
+                        color: MarketColors.muted,
+                      ),
+                    ),
+                    Text(
+                      item.value,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12.5,
+                        color: item.valueColor ?? MarketColors.text,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(11),
-                      boxShadow: MarketTheme.cardShadow,
-                    ),
-                    child: Icon(
-                      item.icon,
-                      size: 18,
-                      color: MarketColors.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          item.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w700,
-                            color: MarketColors.muted,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          item.value,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 13,
-                            color: item.valueColor ?? MarketColors.text,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
+            ],
+          ),
         );
       },
     );

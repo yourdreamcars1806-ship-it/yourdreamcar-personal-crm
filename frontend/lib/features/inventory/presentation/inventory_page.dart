@@ -1054,8 +1054,8 @@ class InventoryPageState extends State<InventoryPage> {
                       ),
                       subtitle: Text(
                         _liveBidEnabled
-                            ? 'Users can place bids on this car'
-                            : 'Bidding closed until you turn this on',
+                            ? 'Users see LIVE timer & can bid'
+                            : 'Normal bidding still available',
                         style: const TextStyle(
                           fontSize: 12.5,
                           color: _formLabel,

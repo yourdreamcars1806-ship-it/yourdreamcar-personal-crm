@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/market_colors.dart';
 import '../../../core/theme/market_theme.dart';
 import '../../../core/ui/app_toast.dart';
-import '../../../core/ui/frost_card.dart';
 import '../../../services/auth_service.dart';
 import 'help_pages.dart';
 import 'user_delivery_notes_page.dart';
@@ -213,31 +212,32 @@ class _UserProfilePageState extends State<UserProfilePage> {
                 const Text(
                   'Profile',
                   style: TextStyle(
-                    fontSize: 28,
+                    fontSize: 22,
                     fontWeight: FontWeight.w900,
                     color: MarketColors.text,
-                    letterSpacing: -0.5,
+                    letterSpacing: -0.4,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   _isLoggedIn
-                      ? 'Manage your account and activity'
-                      : 'Sign in to bid, sell, and track requests',
+                      ? 'Account & activity'
+                      : 'Sign in to bid, sell & track',
                   style: const TextStyle(
                     color: MarketColors.muted,
                     fontWeight: FontWeight.w600,
+                    fontSize: 13,
                   ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 12),
                 _ProfileHeroCard(
                   initials: _initials,
                   name: _displayName,
-                  email: _isLoggedIn ? _email : 'Browse cars without signing in',
+                  email: _isLoggedIn ? _email : 'Browse without signing in',
                   isLoggedIn: _isLoggedIn,
                   onLogin: widget.onLogin,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 10),
                 Row(
                   children: [
                     Expanded(
@@ -249,7 +249,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
                         onTap: _isLoggedIn ? widget.onDashboard : widget.onLogin,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: _QuickStatTile(
                         icon: Icons.receipt_long_rounded,
@@ -267,12 +267,12 @@ class _UserProfilePageState extends State<UserProfilePage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 10),
                 _FeaturedActionCard(
                   title: _isLoggedIn ? 'Submit car request' : 'Sell your car',
                   subtitle: _isLoggedIn
-                      ? 'Admin reviews • Then published live'
-                      : 'Login to send photos and details',
+                      ? 'Admin reviews · then published'
+                      : 'Login to send photos & details',
                   gradient: const [Color(0xFF0F9D58), Color(0xFF059669)],
                   icon: Icons.directions_car_filled_rounded,
                   onTap: () async {
@@ -289,7 +289,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
         ),
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 22, 16, 0),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             child: _SectionHeader(
               title: 'Your activity',
               icon: Icons.bolt_rounded,
@@ -297,14 +297,14 @@ class _UserProfilePageState extends State<UserProfilePage> {
           ),
         ),
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
               _MenuTile(
                 icon: Icons.dashboard_customize_rounded,
                 iconColor: MarketColors.primary,
                 title: 'My dashboard',
-                subtitle: 'Track bids and listing requests',
+                subtitle: 'Bids and listing requests',
                 onTap: _isLoggedIn ? widget.onDashboard : widget.onLogin,
               ),
               if (_isLoggedIn)
@@ -320,7 +320,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
         ),
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 22, 16, 0),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
             child: _SectionHeader(
               title: 'Account',
               icon: Icons.shield_outlined,
@@ -328,7 +328,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
           ),
         ),
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
               if (!_isLoggedIn)
@@ -336,7 +336,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
                   icon: Icons.login_rounded,
                   iconColor: MarketColors.primary,
                   title: 'Login / Sign up',
-                  subtitle: 'Unlock bids, sell requests, and dashboard',
+                  subtitle: 'Unlock bids, sell & dashboard',
                   onTap: widget.onLogin,
                   highlight: true,
                 )
@@ -362,7 +362,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
         ),
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 22, 16, 0),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
             child: _SectionHeader(
               title: 'Help & legal',
               icon: Icons.help_outline_rounded,
@@ -370,21 +370,21 @@ class _UserProfilePageState extends State<UserProfilePage> {
           ),
         ),
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
               _MenuTile(
                 icon: Icons.support_agent_rounded,
                 iconColor: MarketColors.primary,
                 title: 'Support',
-                subtitle: 'Email, FAQs, and response times',
+                subtitle: 'Email, FAQs, response times',
                 onTap: () => _open(context, const SupportPage()),
               ),
               _MenuTile(
                 icon: Icons.description_outlined,
                 iconColor: const Color(0xFF6366F1),
                 title: 'Terms & Conditions',
-                subtitle: 'Rules for using the marketplace',
+                subtitle: 'Marketplace rules',
                 onTap: () => _open(context, const TermsPage()),
               ),
               _MenuTile(
@@ -399,15 +399,14 @@ class _UserProfilePageState extends State<UserProfilePage> {
         ),
         const SliverToBoxAdapter(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(16, 28, 16, 100),
+            padding: EdgeInsets.fromLTRB(16, 18, 16, 96),
             child: Center(
               child: Text(
                 'Your Dream Car · Verified marketplace',
                 style: TextStyle(
-                  fontSize: 11.5,
+                  fontSize: 11,
                   fontWeight: FontWeight.w700,
                   color: MarketColors.muted,
-                  letterSpacing: 0.2,
                 ),
               ),
             ),
@@ -436,8 +435,9 @@ class _ProfileHeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(16),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -445,141 +445,100 @@ class _ProfileHeroCard extends StatelessWidget {
         ),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x400056D2),
-            blurRadius: 22,
-            offset: Offset(0, 10),
+            color: Color(0x330056D2),
+            blurRadius: 14,
+            offset: Offset(0, 6),
           ),
         ],
       ),
-      child: Stack(
-        clipBehavior: Clip.none,
+      child: Row(
         children: [
-          Positioned(
-            right: -24,
-            top: -24,
-            child: Container(
-              width: 110,
-              height: 110,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.08),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withValues(alpha: 0.2),
+              border: Border.all(color: Colors.white54, width: 1.5),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              initials,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+                fontSize: 17,
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 68,
-                  height: 68,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.white.withValues(alpha: 0.35),
-                        Colors.white.withValues(alpha: 0.12),
-                      ],
-                    ),
-                    border: Border.all(color: Colors.white54, width: 2),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    initials,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 24,
-                    ),
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                    color: Colors.white,
                   ),
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 20,
-                                color: Colors.white,
-                                letterSpacing: -0.3,
-                              ),
-                            ),
-                          ),
-                          if (isLoggedIn) ...[
-                            const SizedBox(width: 8),
-                            FrostCard(
-                              borderRadius: 999,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              opacity: 0.22,
-                              blur: 8,
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.verified_rounded,
-                                    color: Colors.white,
-                                    size: 12,
-                                  ),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Member',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        email,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.86),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
+                const SizedBox(height: 2),
+                Text(
+                  email,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.88),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
                   ),
                 ),
               ],
             ),
           ),
           if (!isLoggedIn)
-            Positioned(
-              right: 16,
-              bottom: 16,
-              child: TextButton(
-                onPressed: onLogin,
-                style: TextButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: MarketColors.primary,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            TextButton(
+              onPressed: onLogin,
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: MarketColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text(
+                'Sign in',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12),
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.verified_rounded, color: Colors.white, size: 12),
+                  SizedBox(width: 4),
+                  Text(
+                    'Member',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 10,
+                    ),
                   ),
-                ),
-                child: const Text(
-                  'Sign in',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
+                ],
               ),
             ),
         ],
@@ -611,40 +570,45 @@ class _QuickStatTile extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Ink(
-          padding: const EdgeInsets.all(14),
+          child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: MarketColors.line),
-            boxShadow: MarketTheme.cardShadow,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Row(
             children: [
               Container(
-                width: 38,
-                height: 38,
+                width: 34,
+                height: 34,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, color: color, size: 20),
+                child: Icon(icon, color: color, size: 18),
               ),
-              const SizedBox(height: 12),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                  color: MarketColors.text,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                hint,
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  color: MarketColors.muted,
-                  fontWeight: FontWeight.w600,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13.5,
+                        color: MarketColors.text,
+                      ),
+                    ),
+                    Text(
+                      hint,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: MarketColors.muted,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -675,34 +639,33 @@ class _FeaturedActionCard extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Ink(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(14),
             gradient: LinearGradient(colors: gradient),
             boxShadow: [
               BoxShadow(
-                color: gradient.last.withValues(alpha: 0.35),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
+                color: gradient.last.withValues(alpha: 0.28),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
           child: Row(
             children: [
               Container(
-                width: 52,
-                height: 52,
+                width: 38,
+                height: 38,
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white30),
+                  borderRadius: BorderRadius.circular(11),
                 ),
-                child: Icon(icon, color: Colors.white, size: 26),
+                child: Icon(icon, color: Colors.white, size: 20),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -711,15 +674,14 @@ class _FeaturedActionCard extends StatelessWidget {
                       title,
                       style: const TextStyle(
                         fontWeight: FontWeight.w900,
-                        fontSize: 16,
+                        fontSize: 14,
                         color: Colors.white,
                       ),
                     ),
-                    const SizedBox(height: 4),
                     Text(
                       subtitle,
                       style: TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 11.5,
                         color: Colors.white.withValues(alpha: 0.88),
                         fontWeight: FontWeight.w600,
                       ),
@@ -729,6 +691,7 @@ class _FeaturedActionCard extends StatelessWidget {
               ),
               Icon(
                 Icons.arrow_forward_rounded,
+                size: 18,
                 color: Colors.white.withValues(alpha: 0.9),
               ),
             ],
@@ -787,10 +750,10 @@ class _MenuTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: highlight
               ? MarketColors.primary.withValues(alpha: 0.35)
@@ -798,15 +761,14 @@ class _MenuTile extends StatelessWidget {
                   ? const Color(0xFFFECDD3)
                   : MarketColors.line,
         ),
-        boxShadow: highlight ? MarketTheme.cardShadow : null,
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(14),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               children: [
                 Container(

@@ -303,7 +303,9 @@ class CarRecord {
 
   bool get isSold => availability.toLowerCase() == 'outstock';
 
-  bool get canBid => !isSold && liveBidEnabled;
+  /// Any in-stock car can receive a normal bid.
+  /// Live timer / live UI is separate via [liveBidEnabled].
+  bool get canBid => !isSold;
 
   /// User-facing stock label: "In Stock" or "Sold".
   String get stockStatusLabel => isSold ? 'Sold' : 'In Stock';
