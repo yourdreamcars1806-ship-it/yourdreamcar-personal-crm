@@ -9,6 +9,7 @@ import '../../../core/theme/market_colors.dart';
 import '../../../core/theme/market_theme.dart';
 import '../../../core/ui/car_network_image.dart';
 import '../../../core/ui/car_gallery_section.dart';
+import '../../../core/ui/live_bid_timer.dart';
 import '../../../core/ui/stock_status_badge.dart';
 import '../../../core/ui/sold_overlay.dart';
 import '../../../core/ui/wish_button.dart';
@@ -179,6 +180,15 @@ class _UserCarDetailsPageState extends State<UserCarDetailsPage> {
                             ),
                           ),
                           if (car.isSold) const SoldOverlay(forCard: true),
+                          if (!car.isSold && car.liveBidEnabled)
+                            Positioned(
+                              left: 16,
+                              top: 92,
+                              child: LiveBidTicker(
+                                startedAt: car.liveBidStartedAt,
+                                dark: true,
+                              ),
+                            ),
                           Positioned(
                             left: 16,
                             top: 56,
@@ -239,6 +249,14 @@ class _UserCarDetailsPageState extends State<UserCarDetailsPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          if (!car.isSold && car.liveBidEnabled) ...[
+                            LiveBidPromoBanner(
+                              startedAt: car.liveBidStartedAt,
+                              subtitle:
+                                  'Session started — tap Place a bid below before you leave',
+                            ),
+                            const SizedBox(height: 14),
+                          ],
                           _PriceStatusCard(car: car),
                           const SizedBox(height: 14),
                           _QuickStats(
@@ -401,6 +419,13 @@ class _UserCarDetailsPageState extends State<UserCarDetailsPage> {
                           ),
                         ),
                         const SizedBox(width: 12),
+                        if (car.canBid) ...[
+                          LiveBidTicker(
+                            startedAt: car.liveBidStartedAt,
+                            compact: true,
+                          ),
+                          const SizedBox(width: 10),
+                        ],
                         SizedBox(
                           height: 52,
                           child: DecoratedBox(

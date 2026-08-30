@@ -8,6 +8,7 @@ import '../../../core/theme/market_colors.dart';
 import '../../../core/theme/market_theme.dart';
 import '../../../core/ui/car_network_image.dart';
 import '../../../core/ui/frost_card.dart';
+import '../../../core/ui/live_bid_timer.dart';
 import '../../../core/ui/stock_status_badge.dart';
 import '../../../core/ui/sold_overlay.dart';
 import '../../../core/ui/wish_button.dart';
@@ -327,13 +328,13 @@ class _UserHomePageState extends State<UserHomePage> {
             const SliverToBoxAdapter(child: _EmptyFilter())
           else
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, i) {
                     final car = featured[i];
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.only(bottom: 14),
                       child: _CarListCard(
                         car: car,
                         isNew: freshIds.contains(car.id),
@@ -1194,157 +1195,207 @@ class _CarListCard extends StatelessWidget {
         car.model,
     ].join(' ');
 
+    final live = !car.isSold && car.liveBidEnabled;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x220056D2),
-            blurRadius: 18,
-            offset: Offset(0, 8),
+            color: live ? const Color(0x33DC2626) : const Color(0x220056D2),
+            blurRadius: live ? 20 : 18,
+            offset: const Offset(0, 8),
           ),
-          BoxShadow(
+          const BoxShadow(
             color: Color(0x08000000),
             blurRadius: 4,
             offset: Offset(0, 2),
           ),
         ],
-        border: Border.all(color: const Color(0xFFE7EEF8)),
+        border: Border.all(
+          color: live ? const Color(0x66E11D48) : const Color(0xFFE7EEF8),
+          width: live ? 1.5 : 1,
+        ),
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          child: SizedBox(
-            height: 140,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(
-                  width: 132,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      ColoredBox(
-                        color: const Color(0xFFEEF3FB),
-                        child: CarNetworkImage(
-                          url: car.coverImageUrl,
-                          fit: BoxFit.contain,
-                          cacheWidth: 280,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                height: 152,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      width: 138,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: live
+                                    ? const [Color(0xFFFFF1F2), Color(0xFFEEF3FB)]
+                                    : const [Color(0xFFEEF3FB), Color(0xFFF8FAFF)],
+                              ),
+                            ),
+                            child: CarNetworkImage(
+                              url: car.coverImageUrl,
+                              fit: BoxFit.contain,
+                              cacheWidth: 280,
+                            ),
+                          ),
+                          if (car.isSold)
+                            const SoldOverlay(compact: true)
+                          else
+                            Positioned(
+                              left: 8,
+                              top: 8,
+                              child: isNew
+                                  ? const _TagChip(label: 'New', filled: true)
+                                  : live
+                                      ? LiveBidTicker(
+                                          startedAt: car.liveBidStartedAt,
+                                          compact: true,
+                                        )
+                                      : const _TagChip(
+                                          label: 'Verified',
+                                          icon: Icons.verified,
+                                        ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    title,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 15.5,
+                                      height: 1.2,
+                                      letterSpacing: -0.3,
+                                      color: MarketColors.text,
+                                    ),
+                                  ),
+                                ),
+                                WishButton(carId: car.id, size: 28, iconSize: 15),
+                              ],
+                            ),
+                            if (subtitle.isNotEmpty) ...[
+                              const SizedBox(height: 3),
+                              Text(
+                                subtitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: MarketColors.primary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                if (car.year > 0) _MetaChip(text: '${car.year}'),
+                                if (car.fuelType.trim().isNotEmpty)
+                                  _MetaChip(text: car.fuelType),
+                                _MetaChip(text: owner),
+                              ],
+                            ),
+                            const Spacer(),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Sell price',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          color: MarketColors.muted,
+                                        ),
+                                      ),
+                                      Text(
+                                        formatInr(car.sellPrice),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 18,
+                                          letterSpacing: -0.5,
+                                          color: car.isSold
+                                              ? MarketColors.muted
+                                              : MarketColors.primary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                StockStatusBadge(isSold: car.isSold, compact: true),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
-                      if (car.isSold)
-                        const SoldOverlay(compact: true)
-                      else
-                        Positioned(
-                          left: 8,
-                          top: 8,
-                          child: isNew
-                              ? const _TagChip(label: 'New', filled: true)
-                              : const _TagChip(
-                                  label: 'Verified',
-                                  icon: Icons.verified,
-                                ),
+                    ),
+                  ],
+                ),
+              ),
+              if (live)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Color(0xFF991B1B), Color(0xFFDC2626)],
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.gavel_rounded, color: Colors.white, size: 16),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Live bidding open — tap to place your bid',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                          ),
                         ),
+                      ),
+                      LiveBidTicker(
+                        startedAt: car.liveBidStartedAt,
+                        dark: true,
+                        compact: true,
+                      ),
                     ],
                   ),
                 ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                title,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 15,
-                                  height: 1.2,
-                                  letterSpacing: -0.2,
-                                  color: MarketColors.text,
-                                ),
-                              ),
-                            ),
-                            WishButton(carId: car.id, size: 28, iconSize: 15),
-                          ],
-                        ),
-                        if (subtitle.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: MarketColors.primary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 4),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 4,
-                          children: [
-                            if (car.year > 0) _MetaChip(text: '${car.year}'),
-                            if (car.fuelType.trim().isNotEmpty)
-                              _MetaChip(text: car.fuelType),
-                            _MetaChip(text: owner),
-                          ],
-                        ),
-                        const Spacer(),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Sell price',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w700,
-                                      color: MarketColors.muted,
-                                    ),
-                                  ),
-                                  Text(
-                                    formatInr(car.sellPrice),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 17,
-                                      letterSpacing: -0.4,
-                                      color: car.isSold
-                                          ? MarketColors.muted
-                                          : MarketColors.primary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (car.isSold)
-                              const StockStatusBadge(isSold: true, compact: true)
-                            else
-                              const StockStatusBadge(isSold: false, compact: true),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            ],
           ),
         ),
       ),

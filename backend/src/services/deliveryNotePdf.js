@@ -113,16 +113,25 @@ function buildDeliveryNotePdf(note) {
     const sigLabel = isBuy ? 'Seller Signature' : 'Customer Signature';
     const sigNameLabel = isBuy ? 'Seller Name' : 'Customer Name';
 
-    // Header with brand logo
+    // Header with brand logo (right side of blue bar)
     y = ensureSpace(78, y);
+    const headerH = 64;
     doc.save();
-    doc.rect(marginLeft, y, pageW, 64).fill('#031273');
+    doc.rect(marginLeft, y, pageW, headerH).fill('#031273');
     if (fs.existsSync(LOGO_PATH)) {
-      doc.image(LOGO_PATH, marginLeft + pageW - 58, y + 8, { width: 48, height: 48 });
+      const logoSize = 52;
+      const logoX = marginLeft + pageW - logoSize - 14;
+      const logoY = y + (headerH - logoSize) / 2;
+      doc.circle(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2 + 3).fill('#FFFFFF');
+      doc.image(LOGO_PATH, logoX, logoY, { width: logoSize, height: logoSize });
     }
     doc.fillColor('#FFFFFF');
-    doc.font('Helvetica-Bold').fontSize(20).text(COMPANY.name, marginLeft + 12, y + 14);
-    doc.font('Helvetica').fontSize(10).text(COMPANY.address, marginLeft + 12, y + 40);
+    doc.font('Helvetica-Bold').fontSize(20).text(COMPANY.name, marginLeft + 12, y + 14, {
+      width: pageW - 90,
+    });
+    doc.font('Helvetica').fontSize(10).text(COMPANY.address, marginLeft + 12, y + 40, {
+      width: pageW - 90,
+    });
     doc.restore();
     y += 78;
 

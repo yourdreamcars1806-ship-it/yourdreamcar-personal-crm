@@ -6,6 +6,7 @@ COPY backend/package*.json ./
 RUN npm ci --omit=dev
 
 COPY backend/src ./src
+COPY backend/assets ./assets
 
 EXPOSE 5000
 

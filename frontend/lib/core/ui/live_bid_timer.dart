@@ -230,3 +230,212 @@ mixin LiveBidSessionMixin<T extends StatefulWidget> on State<T>, TickerProviderS
     livePulse.dispose();
   }
 }
+
+/// Self-updating live bid clock for home cards & car details (uses server start time).
+class LiveBidTicker extends StatefulWidget {
+  const LiveBidTicker({
+    super.key,
+    this.startedAt,
+    this.compact = false,
+    this.dark = false,
+  });
+
+  final DateTime? startedAt;
+  final bool compact;
+  final bool dark;
+
+  @override
+  State<LiveBidTicker> createState() => _LiveBidTickerState();
+}
+
+class _LiveBidTickerState extends State<LiveBidTicker>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+  Timer? _tick;
+  late DateTime _started;
+  Duration _elapsed = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _started = widget.startedAt ?? DateTime.now();
+    _elapsed = DateTime.now().difference(_started);
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat(reverse: true);
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() => _elapsed = DateTime.now().difference(_started));
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant LiveBidTicker oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.startedAt != widget.startedAt && widget.startedAt != null) {
+      _started = widget.startedAt!;
+      _elapsed = DateTime.now().difference(_started);
+    }
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.dark) {
+      return LiveBidTimerDisplay(
+        elapsed: _elapsed,
+        pulse: _pulse,
+        compact: widget.compact,
+      );
+    }
+    return _LiveBidInlineChip(elapsed: _elapsed, pulse: _pulse, compact: widget.compact);
+  }
+}
+
+class _LiveBidInlineChip extends StatelessWidget {
+  const _LiveBidInlineChip({
+    required this.elapsed,
+    required this.pulse,
+    required this.compact,
+  });
+
+  final Duration elapsed;
+  final Animation<double> pulse;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = formatLiveBidElapsed(elapsed);
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 8 : 10,
+        vertical: compact ? 4 : 6,
+      ),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFDC2626), Color(0xFFE11D48)],
+        ),
+        borderRadius: BorderRadius.circular(compact ? 10 : 12),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFE11D48).withValues(alpha: 0.35),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedBuilder(
+            animation: pulse,
+            builder: (context, _) => Container(
+              width: compact ? 6 : 8,
+              height: compact ? 6 : 8,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.85 + pulse.value * 0.15),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.white.withValues(alpha: 0.4 + pulse.value * 0.3),
+                    blurRadius: 6,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SizedBox(width: compact ? 5 : 7),
+          Text(
+            compact ? 'LIVE $label' : 'LIVE BID · $label',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              fontSize: compact ? 10 : 11.5,
+              letterSpacing: 0.6,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Prominent live-bid strip for car details & listings.
+class LiveBidPromoBanner extends StatelessWidget {
+  const LiveBidPromoBanner({
+    super.key,
+    required this.startedAt,
+    this.subtitle,
+  });
+
+  final DateTime? startedAt;
+  final String? subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF991B1B),
+            Color(0xFFDC2626),
+            Color(0xFFE11D48),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x40DC2626),
+            blurRadius: 16,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Live bidding is ON',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle ?? 'Timer running — place your bid now',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.92),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12.5,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          LiveBidTicker(startedAt: startedAt, dark: true),
+        ],
+      ),
+    );
+  }
+}
